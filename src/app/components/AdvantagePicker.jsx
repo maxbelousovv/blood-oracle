@@ -49,9 +49,25 @@ const norm = (value) => String(value ?? '').trim().toLowerCase()
 /** An entry with details (Allies, Linguistics, Enemy) can be taken more than once. */
 const repeatable = (entry) => entry.hasDetails || /\bper\b/i.test(entry.dots)
 
-export default function AdvantagePicker({ actor, kind, sectionType, backgroundsOnly, onPick, onClose }) {
+export default function AdvantagePicker({
+  actor,
+  kind,
+  sectionType,
+  backgroundsOnly,
+  onPick,
+  onClose,
+  // Optional: restrict to these names (coterie backgrounds), open on a search,
+  // and say what is being chosen.
+  only = null,
+  // Entries from outside the rules reference (coterie merits), always offered.
+  extraEntries = null,
+  // Names never offered here — a Caitiff's Status at character creation.
+  exclude = null,
+  initialQuery = '',
+  title: titleOverride = null
+}) {
   const [rubric, setRubric] = useState(ALL)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [selected, setSelected] = useState(null)
   const [hovered, setHovered] = useState(null)
   const [showAll, setShowAll] = useState(false)
@@ -71,9 +87,17 @@ export default function AdvantagePicker({ actor, kind, sectionType, backgroundsO
   const pool = useMemo(() => {
     const all = searchAdvantages('', { kind, limit: 1000 })
     // Positive backgrounds have their own section; background flaws are flaws.
-    if (backgroundsOnly) return all.filter((entry) => entry.group === 'Backgrounds')
-    return kind === 'merit' ? all.filter((entry) => entry.group !== 'Backgrounds') : all
-  }, [kind, backgroundsOnly])
+    const allowed = only ? new Set(only.map(norm)) : null
+    const scoped = backgroundsOnly
+      ? all.filter((entry) => entry.group === 'Backgrounds')
+      : kind === 'merit'
+        ? all.filter((entry) => entry.group !== 'Backgrounds')
+        : all
+    const base = allowed ? scoped.filter((entry) => allowed.has(norm(entry.name))) : scoped
+    const all2 = extraEntries?.length ? [...base, ...extraEntries] : base
+    const excluded = exclude ? new Set(exclude.map(norm)) : null
+    return excluded ? all2.filter((entry) => !excluded.has(norm(entry.name))) : all2
+  }, [kind, backgroundsOnly, only, extraEntries, exclude])
 
   const visible = pool.filter((entry) => allowed(entry.group))
 
@@ -104,8 +128,9 @@ export default function AdvantagePicker({ actor, kind, sectionType, backgroundsO
   }
 
   const hiddenGroups = pool.some((entry) => RESTRICTED[entry.group] && !RESTRICTED[entry.group](ctx))
-  const single = backgroundsOnly || groups.length <= 1
-  const title = backgroundsOnly ? 'Choose a background' : kind === 'flaw' ? 'Choose a flaw' : 'Choose a merit'
+  const single = (backgroundsOnly && !extraEntries?.length) || groups.length <= 1
+  const title =
+    titleOverride ?? (backgroundsOnly ? 'Choose a background' : kind === 'flaw' ? 'Choose a flaw' : 'Choose a merit')
 
   return (
     <Modal title={title} className="bo-modal is-xwide" onClose={onClose}>
@@ -181,6 +206,7 @@ export default function AdvantagePicker({ actor, kind, sectionType, backgroundsO
               <p className="bo-detail-sub">
                 {groupLabel(kind, preview.group)} · {preview.dots || '—'} {preview.dots === '1' ? 'dot' : 'dots'}
               </p>
+              {preview.summary ? <p className="bo-picker-summary">{preview.summary}</p> : null}
               <p className="bo-prose">{preview.description || 'No description recorded.'}</p>
               {isTaken(preview) ? (
                 <p className="bo-picker-note">

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import DotTracker from './DotTracker.jsx'
 import SpecialtyPopover, { SpecialtyTooltip } from './SpecialtyPopover.jsx'
+import { TraitTip, useDelayedTip } from './TraitTip.jsx'
 import { warnLocked } from '../lock.js'
 import { readSpecialties, grantingPredator } from '../schema/specialties.js'
 
@@ -16,6 +17,7 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
   const [popover, setPopover] = useState(null)
   const [hovered, setHovered] = useState(false)
   const anchorRef = useRef(null)
+  const traitTip = useDelayedTip()
 
   const dots = Number(foundry.utils.getProperty(actor, entry.path)) || 0
   const specialties = readSpecialties(actor, entry.id)
@@ -42,9 +44,10 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
   return (
     <div className="bo-stat-row">
       <div className="bo-stat-name" ref={anchorRef}>
-        <button type="button" className="bo-trait-name" onClick={() => onRoll(entry)} title={entry.label}>
+        <button type="button" className="bo-trait-name" onClick={() => onRoll(entry)} {...traitTip.bind}>
           {entry.label}
         </button>
+        <TraitTip anchor={traitTip.anchor} entry={entry} />
 
         {/* Specialties only exist once the skill has dots, as in the original —
             except one the predator type granted, which shows regardless. */}
@@ -90,6 +93,7 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
           entries={specialties}
           predator={predator}
           canEdit={canEdit}
+          limit={dots}
           focusAdd={popover.focusAdd}
           onClose={closePopover}
         />

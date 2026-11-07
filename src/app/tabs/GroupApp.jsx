@@ -11,6 +11,9 @@ import {
 import EditableText from '../components/EditableText.jsx'
 import { warnLocked } from '../lock.js'
 import Select from '../components/Select.jsx'
+import { TraitTip, useDelayedTip } from '../components/TraitTip.jsx'
+import { CoterieAdvantages, CoterieTypeSection } from '../components/Coterie.jsx'
+import { isSecretMember, setSecretMember } from '../schema/coterie.js'
 
 /**
  * Groups: a coterie of Kindred, a pack of Garou, a cell of hunters.
@@ -57,6 +60,31 @@ const RATINGS = {
     { id: 'desperation', label: 'Desperation', path: 'system.desperation.value' },
     { id: 'danger', label: 'Danger', path: 'system.danger.value' }
   ]
+}
+
+/**
+ * One shared rating. Resting on its name shows what it does: the rulebook text
+ * from the private trait file when installed, else the short line above.
+ */
+function RatingRow({ actor, rating, editable, locked }) {
+  const tip = useDelayedTip()
+  return (
+    <div className="bo-stat-row">
+      <div className="bo-stat-name">
+        <span className="bo-trait-name" {...tip.bind}>
+          {rating.label}
+        </span>
+        <TraitTip anchor={tip.anchor} entry={rating} fallback={rating.info} />
+      </div>
+      <DotTracker
+        value={Number(foundry.utils.getProperty(actor, rating.path)) || 0}
+        max={5}
+        disabled={!editable}
+        locked={locked}
+        onChange={(next) => actor.update({ [rating.path]: next })}
+      />
+    </div>
+  )
 }
 
 /* ---------------------------------------------------------------- members */
@@ -142,8 +170,19 @@ function MemberPicker({ actor, taken, onClose }) {
   )
 }
 
+function EyeIcon({ open }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" style={{ display: 'block' }}>
+      <path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="8" cy="8" r="2" fill="currentColor" />
+      {open ? null : <path d="M2 14L14 2" stroke="currentColor" strokeWidth="1.4" />}
+    </svg>
+  )
+}
+
 function Members({ actor, editable }) {
   const [picking, setPicking] = useState(false)
+  const isCoterie = (actor.system.groupType || 'coterie') === 'coterie'
   const uuids = Array.isArray(actor.system.members) ? actor.system.members : []
   const members = uuids.map((uuid) => fromUuidSync(uuid)).filter(Boolean)
   const missing = uuids.length - members.length
@@ -184,8 +223,25 @@ function Members({ actor, editable }) {
               </button>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="bo-member-name">{member.name}</div>
-                <div className="bo-member-type">{member.type}</div>
+                <div className="bo-member-type">
+                  {member.type}
+                  {isCoterie && isSecretMember(actor, member) ? ' · secret member' : ''}
+                </div>
               </div>
+              {editable && isCoterie ? (
+                <button
+                  type="button"
+                  className={isSecretMember(actor, member) ? 'bo-mini is-active' : 'bo-mini'}
+                  title={
+                    isSecretMember(actor, member)
+                      ? 'Keeps their membership secret: no coterie advantages or domain. Click to make it open.'
+                      : 'Openly a member. Click to keep it secret: spared some coterie flaws, but no advantages or domain.'
+                  }
+                  onClick={() => setSecretMember(actor, member, !isSecretMember(actor, member))}
+                >
+                  <EyeIcon open={!isSecretMember(actor, member)} />
+                </button>
+              ) : null}
               {editable ? (
                 <button
                   type="button"
@@ -523,6 +579,9 @@ function GroupProperty({ actor, editable }) {
 
 export default function GroupApp({ actor, editable, locked, onToggleLock }) {
   const [tab, setTab] = useState('domain')
+  // The coterie picker is opened from its own section and from a type's
+  // possible extras, so its state lives here.
+  const [coteriePicking, setCoteriePicking] = useState(null)
   const groupType = actor.system.groupType || 'coterie'
   const ratings = RATINGS[groupType] ?? RATINGS.coterie
 
@@ -624,20 +683,19 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
 
           <div style={{ display: 'grid', gap: '4px', marginBottom: '24px' }}>
             {ratings.map((rating) => (
-              <div key={rating.id} className="bo-stat-row">
-                <div className="bo-stat-name">
-                  <span className="bo-trait-name">{rating.label}</span>
-                </div>
-                <DotTracker
-                  value={Number(foundry.utils.getProperty(actor, rating.path)) || 0}
-                  max={5}
-                  disabled={!editable}
-                  locked={locked}
-                  onChange={(next) => actor.update({ [rating.path]: next })}
-                />
-              </div>
+              <RatingRow key={rating.id} actor={actor} rating={rating} editable={editable} locked={locked} />
             ))}
           </div>
+
+          {groupType === 'coterie' ? (
+            <div style={{ marginBottom: '24px' }}>
+              <CoterieTypeSection
+                actor={actor}
+                editable={editable}
+                onPickExtra={(extra) => setCoteriePicking({ kind: extra.flaw ? 'flaw' : 'merit', query: extra.query })}
+              />
+            </div>
+          ) : null}
 
           <SectionTitle>Concept</SectionTitle>
           <div className="bo-pair-grid" style={{ marginBottom: '24px' }}>
@@ -668,7 +726,17 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
 
           <div style={{ marginBottom: '24px' }}>{field('Description', 'system.biography', 6)}</div>
 
-          <GroupFeatures actor={actor} editable={editable} locked={locked} />
+          {groupType === 'coterie' ? (
+            <CoterieAdvantages
+              actor={actor}
+              editable={editable}
+              locked={locked}
+              picking={coteriePicking}
+              setPicking={setCoteriePicking}
+            />
+          ) : (
+            <GroupFeatures actor={actor} editable={editable} locked={locked} />
+          )}
         </div>
       ) : null}
 

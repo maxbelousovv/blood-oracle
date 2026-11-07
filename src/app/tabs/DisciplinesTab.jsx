@@ -27,6 +27,7 @@ import { promptImport } from '../schema/import.js'
 import { rollPower, payPowerCost, powerAction, opposingPoolText } from '../roll/power.js'
 import Select from '../components/Select.jsx'
 import { disciplineOverview } from '../rules/catalog.js'
+import EntityArt from '../components/EntityArt.jsx'
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
 
@@ -182,6 +183,9 @@ function DisciplineDetail({ actor, discipline, editable, onAddPower, onRemove })
 
   return (
     <div className="bo-panel">
+      {/* Floated right: the title and the overview flow around it, and a
+          discipline without art loses nothing. */}
+      <EntityArt key={discipline.id} category="disciplines" id={discipline.id} title={discipline.label} />
       <div className="bo-row" style={{ alignItems: 'flex-start' }}>
         <div>
           <h3 className="bo-detail-title">{discipline.label}</h3>
@@ -199,7 +203,7 @@ function DisciplineDetail({ actor, discipline, editable, onAddPower, onRemove })
         </>
       ) : null}
 
-      <div className="bo-scalars">
+      <div className="bo-scalars" style={{ clear: 'both' }}>
         <LabelledValue label="Powers known" value={String(powers.length)} />
         <LabelledValue label="Rating" value={String(value)} />
         {overview ? <LabelledValue label="Type" value={overview.type} /> : null}

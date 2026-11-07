@@ -7,25 +7,38 @@ field can be entered by hand — so treat it as a private convenience.
 
 ## Generating the file
 
-From a copy of the standalone Blood Oracle source:
+The reference is built from five private sources by one command. Put them in
+one folder outside the repository:
+
+| Source | Holds |
+|---|---|
+| `blood_oracle*.jsx` | the standalone app: rules, powers, clans, predators, merits |
+| `loresheets*.xlsx` | loresheet descriptions and levels |
+| `attributes*.xlsx` | attribute, skill and coterie-domain tooltips |
+| `coterie_types*.xlsx` | coterie types |
+| `coterie_advantages*.xlsx` (or `.csv`) | coterie merits, flaws and rules notes |
 
 ```bash
-node tools/extract-rules.mjs /path/to/blood_oracle.jsx blood-oracle-rules.json
+node tools/build-reference.mjs path/to/sources Data/blood-oracle/blood-oracle-rules.json
 ```
 
-The extractor reads `FULL_RULES` and `POWERS` out of the app, maps discipline
-display names onto the system's keys (Blood Sorcery becomes `sorcery`,
-Thin-Blood Alchemy becomes `alchemy`), strips amalgam suffixes from power names
-while keeping the requirement, and folds rituals and ceremonies into the two
-pseudo-disciplines wod5e provides for them.
+When a folder holds several versions of one source, the highest `_vN` is used.
+Only the app is required; a missing table leaves its section out and the
+build says so. Add `--catalogues` (run from the repository) to regenerate the
+names that ship with the module under `src/app/rules` when a table gains or
+renames loresheets, coterie types or coterie merits, and commit those files.
 
-Expect roughly 399 entries, 12 discipline overviews, 16 clans, 17 predator
-types, 76 merits and 108 flaws — about 620 KB.
+The single extractors (`extract-rules.mjs`, `extract-loresheets.mjs`,
+`extract-traits.mjs`, `extract-coterie-types.mjs`,
+`extract-coterie-advantages.mjs`) still work on their own; the build runs them
+and merges their output. Older builds wrote loresheets, tooltips and coterie
+texts to separate files beside the reference; the module still reads those
+when the reference lacks the section, so nothing breaks before you rebuild.
 
-The file also carries the Humanity table, Blood Potency ranges by generation,
-and the resonance and temperament lists. If you generated a file before these
-were added, regenerate it — the Blood tab falls back to typed input without
-them.
+The app extractor maps discipline display names onto the system's keys (Blood
+Sorcery becomes `sorcery`, Thin-Blood Alchemy becomes `alchemy`), strips
+amalgam suffixes from power names while keeping the requirement, and folds
+rituals and ceremonies into the two pseudo-disciplines wod5e provides for them.
 
 ## Installing it
 
@@ -75,3 +88,44 @@ but not in its rules table:
   Seek the Gathered Vitae
 
 They still import and can be filled in by hand.
+
+## The tables
+
+Each table's columns and formats are described in its own help sheet ("Как
+заполнять") where it has one, and in the header comment of its extractor in
+`tools/`. In short:
+
+- **Loresheets:** name, description, the five levels as "Level name: text",
+  and the restriction in brackets in a comment column, such as
+  "(Ventrue characters only)".
+- **Attributes:** every sheet is read, each with a header row — attributes and
+  skills on one, Chasse, Lien and Portillon on another. Columns: name,
+  description, example specialties separated by commas. Traits match by name
+  with spaces dropped ("Animal Ken" is `animalken`).
+- **Coterie types:** type, description, Chasse, Lien, Portillon, backgrounds,
+  flaws, choices, possible extras.
+- **Coterie advantages:** a sheet of coterie merits and flaws (name, cost,
+  description, group — or `rules` for a rules note) and a sheet of clan
+  coterie merits (clan, name, cost, description, summary).
+
+## Art
+
+Illustrations are private too: a folder beside the rules reference, looked up
+by name. Nothing is configured; a file that exists is shown, and a missing one
+leaves the panel as it was.
+
+```
+Data/blood-oracle/art/disciplines/<key>.webp
+```
+
+`.png` and `.jpg` are found as well, in that order after `.webp`. About 512
+pixels on the long side is plenty. The art appears as a thumbnail in the
+corner of the discipline's detail panel; clicking it opens Foundry's image
+window, where the Storyteller can show it to every player.
+
+Discipline keys are the system's own: `animalism`, `auspex`, `celerity`,
+`dominate`, `fortitude`, `obfuscate`, `oblivion`, `potence`, `presence`,
+`protean`, `sorcery` (Blood Sorcery), `alchemy` (Thin-Blood Alchemy), and the
+pseudo-disciplines `rituals` and `ceremonies`. A custom
+discipline uses the id shown in its world setting.
+

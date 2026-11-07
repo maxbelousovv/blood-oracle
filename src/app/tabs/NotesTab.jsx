@@ -10,6 +10,7 @@ import {
   addExperience,
   removeExperience
 } from '../schema/journal.js'
+import { BloodOracleLevelUp } from '../../sheet/levelup-app.js'
 
 /* ------------------------------------------------------------------ notes */
 
@@ -133,6 +134,11 @@ function ExperienceLedger({ actor, editable }) {
             {remaining}
           </div>
         </div>
+        {editable ? (
+          <button type="button" className="bo-solid bo-xp-spend" onClick={() => BloodOracleLevelUp.open(actor)}>
+            Spend…
+          </button>
+        ) : null}
       </div>
 
       {editable ? (
@@ -160,8 +166,8 @@ function ExperienceLedger({ actor, editable }) {
           <GhostButton tone="accent" onClick={() => record(false)}>
             Earn
           </GhostButton>
-          <GhostButton tone="danger" onClick={() => record(true)}>
-            Spend
+          <GhostButton tone="danger" onClick={() => record(true)} title="Record a spend by hand, without the level-up window">
+            Record spend
           </GhostButton>
         </div>
       ) : null}

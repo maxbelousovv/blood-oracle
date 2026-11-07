@@ -109,6 +109,7 @@ export default function SpecialtyPopover({
   entries,
   predator,
   canEdit,
+  limit = Infinity,
   focusAdd,
   onClose
 }) {
@@ -212,7 +213,13 @@ export default function SpecialtyPopover({
         {!entries.length ? <div className="bo-spec-pop-empty">No specialties yet.</div> : null}
       </div>
 
-      {canEdit ? (
+      {canEdit && entries.length >= limit ? (
+        <div className="bo-spec-pop-empty">
+          {limit > 0
+            ? `As many specialties as dots (${limit}) — raise the skill for another.`
+            : 'The skill needs a dot before it can have a specialty.'}
+        </div>
+      ) : canEdit ? (
         <div className="bo-spec-pop-add">
           <input
             ref={addRef}

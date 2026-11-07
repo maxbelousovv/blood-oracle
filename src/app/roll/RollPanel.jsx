@@ -7,6 +7,7 @@ import { composePool } from './pool.js'
 import { getHungerDice, splitPool } from './bridge.js'
 import { rouseCheck } from './checks.js'
 import OddsPopover from './OddsPopover.jsx'
+import { coterieDomainFor, huntingDifficulty } from '../schema/coterie.js'
 import Stepper from '../components/Stepper.jsx'
 
 const EMPTY = { kind: null, id: null, label: '' }
@@ -30,6 +31,11 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   const [useResonance, setUseResonance] = useState(false)
   const [useWeaponDamage, setUseWeaponDamage] = useState(false)
   const [rolling, setRolling] = useState(false)
+  // The coterie's domain: Lien adds dice; hunting there sets the difficulty
+  // from Chasse, and the difficulty it replaced comes back when it is undone.
+  const [useLien, setUseLien] = useState(false)
+  const [huntingInDomain, setHuntingInDomain] = useState(false)
+  const difficultyBeforeHunt = useRef(0)
 
   useEffect(() => {
     if (!initialSlots) return
@@ -103,10 +109,33 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
     return [...trained, ...untrained]
   })()
 
+  const domain = coterieDomainFor(actor)
+  const lienDice = domain && !domain.secret && useLien && !huntingInDomain ? domain.lien : 0
+  const huntDifficulty = domain && !domain.secret ? huntingDifficulty(domain.chasse) : null
+
+  const toggleHunting = (on) => {
+    if (on) {
+      difficultyBeforeHunt.current = difficulty
+      setDifficulty(huntDifficulty)
+      // Lien never modifies a coterie member's hunting rolls.
+      setUseLien(false)
+    } else {
+      setDifficulty(difficultyBeforeHunt.current)
+    }
+    setHuntingInDomain(on)
+  }
+
   const composition = composePool(actor, {
     slots,
     modifier,
-    options: { bloodSurge, specialty: specialtyKey, useResonance, useWeaponDamage }
+    options: {
+      bloodSurge,
+      specialty: specialtyKey,
+      useResonance,
+      useWeaponDamage,
+      lien: lienDice,
+      lienLabel: domain?.group?.name
+    }
   })
 
   // Toggles switch themselves off when their precondition disappears, so the
@@ -286,6 +315,54 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
           </span>
         </label>
       </div>
+
+      {domain ? (
+        <div className="bo-block">
+          <div className="bo-label">Domain · {domain.group.name}</div>
+          {domain.secret ? (
+            <p className="bo-roll-note">
+              Membership kept secret: the coterie’s domain does not help this character.
+            </p>
+          ) : (
+            <>
+              <label className={domain.lien && !huntingInDomain ? 'bo-toggle' : 'bo-toggle is-disabled'}>
+                <input
+                  type="checkbox"
+                  checked={useLien && !huntingInDomain}
+                  disabled={!domain.lien || huntingInDomain}
+                  onChange={(event) => setUseLien(event.target.checked)}
+                />
+                <span>Lien</span>
+                <span className="bo-toggle-note">
+                  {!domain.lien
+                    ? 'no Lien in this domain'
+                    : huntingInDomain
+                      ? 'never adds to hunting rolls'
+                      : `+${domain.lien} · dealing peacefully with locals, finding or investigating in the domain`}
+                </span>
+              </label>
+              <label className={huntDifficulty ? 'bo-toggle' : 'bo-toggle is-disabled'}>
+                <input
+                  type="checkbox"
+                  checked={huntingInDomain}
+                  disabled={!huntDifficulty}
+                  onChange={(event) => toggleHunting(event.target.checked)}
+                />
+                <span>Hunting in the domain</span>
+                <span className="bo-toggle-note">
+                  {huntDifficulty ? `Chasse ${domain.chasse} · difficulty ${huntDifficulty}` : 'no Chasse in this domain'}
+                </span>
+              </label>
+              {domain.portillon ? (
+                <p className="bo-roll-note">
+                  Portillon {domain.portillon}: anyone slipping into the domain unnoticed rolls {domain.portillon}{' '}
+                  {domain.portillon === 1 ? 'die' : 'dice'} fewer — for the Storyteller.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
 
       <div className="bo-block">
         <div className="bo-label">Pool</div>

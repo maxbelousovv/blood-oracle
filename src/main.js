@@ -50,6 +50,25 @@ Hooks.once('init', () => {
     onChange: () => loadRules({ force: true })
   })
 
+  // A member's sheet shows what their coterie holds, so a change to the
+  // coterie's backgrounds redraws its members' open sheets.
+  const redrawMembers = (item) => {
+    const group = item?.parent
+    if (group?.documentName !== 'Actor' || group.type !== 'group') return
+    for (const uuid of group.system?.members ?? []) {
+      const member = fromUuidSync(uuid)
+      if (member?.sheet?.rendered) member.sheet.render()
+    }
+  }
+  Hooks.on('createItem', redrawMembers)
+  Hooks.on('updateItem', redrawMembers)
+  Hooks.on('deleteItem', redrawMembers)
+  // The group itself changing — its domain, who keeps membership secret —
+  // matters to members' sheets as well.
+  Hooks.on('updateActor', (actor) => {
+    if (actor?.type === 'group') redrawMembers({ parent: actor })
+  })
+
   // Token bars need nothing from us: wod5e already declares health and
   // willpower as the token attributes. Statuses are what it lacks.
   registerLockSetting()

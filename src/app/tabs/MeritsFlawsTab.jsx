@@ -12,6 +12,11 @@ import {
   dotsRange
 } from '../schema/advantages.js'
 import { featureOrigin } from '../schema/predator-grants.js'
+import { LoresheetCard, LoresheetDetail } from '../components/Loresheets.jsx'
+import LoresheetPicker from '../components/LoresheetPicker.jsx'
+import { SharedFromCoterie, clanCoterieEntries } from '../components/Coterie.jsx'
+import { groupOf } from '../schema/coterie.js'
+import { canSee, isLoresheetItem, ownedLoresheets, takeLevel } from '../schema/loresheets.js'
 
 const SECTIONS = [
   { type: FEATURE_TYPES.merit, title: 'Merits', kind: 'merit' },
@@ -99,8 +104,31 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
 export default function MeritsFlawsTab({ actor, editable, locked }) {
   const [selectedId, setSelectedId] = useState(null)
   const [picking, setPicking] = useState(null) // { kind, backgroundsOnly, type }
+  // Loresheets are selected by loresheet, not by item: one card holds several.
+  const [selectedLore, setSelectedLore] = useState(null)
+  const [pickingLore, setPickingLore] = useState(false)
 
   const selected = selectedId ? actor.items.get(selectedId) : null
+  const loresheets = ownedLoresheets(actor).filter((group) => canSee(actor, group.entry.id))
+  const selectedLoreGroup = selectedLore
+    ? loresheets.find((group) => group.entry.id === selectedLore) ?? null
+    : null
+
+  const selectItem = (id) => {
+    setSelectedLore(null)
+    setSelectedId(id)
+  }
+  const selectLore = (id) => {
+    setSelectedId(null)
+    setSelectedLore(selectedLore === id ? null : id)
+  }
+
+  const takeFromPicker = async (entry, level) => {
+    await takeLevel(actor, entry, level)
+    setPickingLore(false)
+    setSelectedId(null)
+    setSelectedLore(entry.id)
+  }
 
   const remove = async (item) => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
@@ -115,13 +143,13 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
 
   const addBlank = async (featuretype) => {
     const created = await addFeature(actor, { featuretype })
-    if (created) setSelectedId(created.id)
+    if (created) selectItem(created.id)
   }
 
   const pickFrom = async (entry) => {
     const created = await addFeature(actor, { entry })
     setPicking(null)
-    if (created) setSelectedId(created.id)
+    if (created) selectItem(created.id)
   }
 
   return (
@@ -134,7 +162,9 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
       <div className="bo-master-detail">
         <div>
           {SECTIONS.map((section) => {
-            const items = featuresOfType(actor, section.type)
+            // Loresheet levels are merits to the system, but they live on
+            // their own cards below.
+            const items = featuresOfType(actor, section.type).filter((item) => !isLoresheetItem(item))
 
             return (
               <div key={section.type} style={{ marginBottom: '22px' }}>
@@ -173,7 +203,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
                             className={
                               selectedId === item.id ? 'bo-trait-name is-selected' : 'bo-trait-name'
                             }
-                            onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
+                            onClick={() => selectItem(selectedId === item.id ? null : item.id)}
                           >
                             {item.name}
                           </button>
@@ -219,10 +249,49 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
               </div>
             )
           })}
+
+          <SharedFromCoterie group={groupOf(actor)} actor={actor} />
+
+          <div style={{ marginBottom: '22px' }}>
+            <div className="bo-row" style={{ marginBottom: '10px' }}>
+              <div className="bo-label" style={{ margin: 0 }}>
+                Loresheets
+              </div>
+              {editable ? (
+                <GhostButton tone="accent" onClick={() => setPickingLore(true)}>
+                  + Add
+                </GhostButton>
+              ) : null}
+            </div>
+            {loresheets.length ? (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {loresheets.map((group) => (
+                  <LoresheetCard
+                    key={group.entry.id}
+                    actor={actor}
+                    group={group}
+                    selected={selectedLore === group.entry.id}
+                    onSelect={() => selectLore(group.entry.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="bo-empty" style={{ textAlign: 'left', padding: '4px 0' }}>
+                No loresheet ties them to the wider story yet.
+              </p>
+            )}
+          </div>
         </div>
 
         <div>
-          {selected ? (
+          {selectedLoreGroup ? (
+            <LoresheetDetail
+              actor={actor}
+              group={selectedLoreGroup}
+              editable={editable}
+              onDropped={() => setSelectedLore(null)}
+            />
+          ) : selected ? (
             <FeatureDetail
               item={selected}
               editable={editable}
@@ -245,9 +314,15 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
           kind={picking.kind}
           sectionType={picking.type}
           backgroundsOnly={picking.backgroundsOnly}
+          // A clan's coterie merit can be bought by one of its Kindred alone.
+          extraEntries={picking.kind === 'merit' && !picking.backgroundsOnly ? clanCoterieEntries(actor) : null}
           onPick={pickFrom}
           onClose={() => setPicking(null)}
         />
+      ) : null}
+
+      {pickingLore ? (
+        <LoresheetPicker actor={actor} onTake={takeFromPicker} onClose={() => setPickingLore(false)} />
       ) : null}
     </div>
   )

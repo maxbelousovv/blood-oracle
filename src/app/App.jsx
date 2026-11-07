@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { isLocked, setLocked } from './lock.js'
 import { splatOf, splatClass } from './splats.js'
 import StatisticsTab from './tabs/StatisticsTab.jsx'
@@ -13,6 +13,8 @@ import NotesTab from './tabs/NotesTab.jsx'
 import RollPanel from './roll/RollPanel.jsx'
 import { rouseCheck, resistFrenzy, willpowerPool } from './roll/checks.js'
 import EditableText from './components/EditableText.jsx'
+import { BloodOracleChargen } from '../sheet/chargen-app.js'
+import { chargenDone, readDraft, shouldOfferChargen } from './chargen/apply.js'
 
 /** Statistics rows hand over a trait entry; the pool constructor wants a slot. */
 function toSlot(entry) {
@@ -96,6 +98,13 @@ function Header({ actor, editable, locked, onToggleLock, onQuickRoll, onResistFr
             Resist frenzy
           </button>
         ) : null}
+        {/* Only a creation left half-way gets a button; starting one is the
+            first-open question's job, or the window menu's. */}
+        {editable && actor.type === 'vampire' && !chargenDone(actor) && readDraft(actor) ? (
+          <button type="button" className="bo-header-button is-accent" onClick={() => BloodOracleChargen.open(actor)}>
+            Continue creation
+          </button>
+        ) : null}
         <button type="button" className="bo-header-button" onClick={onQuickRoll}>
           Quick roll
         </button>
@@ -110,6 +119,15 @@ export default function App({ store }) {
   const [tab, setTab] = useState('stats')
   const [rollSlots, setRollSlots] = useState(null)
   const [locked, setLockedState] = useState(() => isLocked())
+  // Asked once per opening of the sheet, never on every re-render.
+  const offered = useRef(false)
+
+  useEffect(() => {
+    if (offered.current || !snapshot?.editable || !snapshot?.actor) return
+    if (!shouldOfferChargen(snapshot.actor)) return
+    offered.current = true
+    BloodOracleChargen.offer(snapshot.actor)
+  }, [snapshot?.actor, snapshot?.editable])
 
   const toggleLock = async () => {
     const next = !locked

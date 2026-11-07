@@ -46,7 +46,8 @@ export function Block({ label, children, mono = false }) {
 }
 
 export function GhostButton({ tone, children, ...props }) {
-  const className = ['bo-ghost', tone === 'accent' ? 'is-accent' : '', tone === 'danger' ? 'is-danger' : '']
+  // accent: gold · danger: red · arcane: the violet of Willpower
+  const className = ['bo-ghost', tone ? `is-${tone}` : '']
     .filter(Boolean)
     .join(' ')
   return (

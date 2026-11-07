@@ -101,6 +101,11 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
   const resonanceBonus = options.useResonance && resonanceApplies ? 1 : 0
   if (resonanceBonus) parts.push({ label: 'Resonance', value: resonanceBonus })
 
+  // Lien: the coterie's ties to its domain, one die a dot, never for hunting —
+  // the dialog keeps that rule, so here it is just dice.
+  const lien = Math.max(0, Number(options.lien) || 0)
+  if (lien) parts.push({ label: options.lienLabel ? `Lien (${options.lienLabel})` : 'Lien', value: lien })
+
   // Blood Potency adds dice to discipline pools, so only when a discipline is
   // actually part of the roll — rolling Strength + Brawl while benefiting from
   // Potence gets nothing, which is how the book reads it.
@@ -155,7 +160,7 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
   )
 
   const raw =
-    traitsTotal + Number(modifier) + surge + specialty + resonanceBonus + powerBonus + penalties
+    traitsTotal + Number(modifier) + surge + specialty + resonanceBonus + lien + powerBonus + penalties
 
   // A Storyteller's modifier alone should not produce a roll, and penalties
   // never take a real pool below one die.

@@ -8,3 +8,9 @@ build/
 # be committed or shipped in a release.
 blood-oracle-rules.json
 *-rules.json
+
+# Loresheet and trait texts and the tables they come from: rulebook text, never committed.
+blood-oracle-loresheets.json
+blood-oracle-traits.json
+blood-oracle-coterie.json
+*.xlsx

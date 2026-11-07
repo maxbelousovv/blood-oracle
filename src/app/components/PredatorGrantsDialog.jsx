@@ -103,7 +103,7 @@ function BlockHeading({ label, done }) {
   )
 }
 
-function ChooseBlock({ actor, block, selection, onChange }) {
+export function ChooseBlock({ actor, block, selection, onChange }) {
   const chosen = selection.option == null ? null : block.options[selection.option]
 
   return (
@@ -150,7 +150,7 @@ function ChooseBlock({ actor, block, selection, onChange }) {
   )
 }
 
-function SpreadBlock({ block, selection, onChange }) {
+export function SpreadBlock({ block, selection, onChange }) {
   const spent = selection.alloc.reduce((sum, n) => sum + n, 0)
   const left = block.dots - spent
 

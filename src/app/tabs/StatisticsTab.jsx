@@ -8,17 +8,20 @@ import {
   setBonus
 } from '../schema/derived.js'
 import SkillRow from '../components/SkillRow.jsx'
+import { TraitTip, useDelayedTip } from '../components/TraitTip.jsx'
 import { SectionTitle, GhostButton } from '../components/primitives.jsx'
 import { DamageTracker, HumanityTracker, HungerTracker } from '../components/Trackers.jsx'
 import { getAttributeGroups, getSkillGroups, readTrait } from '../traits.js'
 
 function AttributeRow({ actor, entry, editable, locked, onRoll }) {
+  const tip = useDelayedTip()
   return (
     <div className="bo-stat-row">
       <div className="bo-stat-name">
-        <button type="button" className="bo-trait-name" onClick={() => onRoll(entry)}>
+        <button type="button" className="bo-trait-name" onClick={() => onRoll(entry)} {...tip.bind}>
           {entry.label}
         </button>
+        <TraitTip anchor={tip.anchor} entry={entry} />
       </div>
       <DotTracker
         value={readTrait(actor, entry.path)}

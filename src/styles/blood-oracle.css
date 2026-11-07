@@ -3300,3 +3300,1299 @@
   font-weight: 700;
   background: color-mix(in srgb, var(--bo-accent, #c8a060) 10%, transparent);
 }
+
+/* ==========================================================================
+   v0.5 — loresheets
+   ========================================================================== */
+
+.blood-oracle .bo-lore-card {
+  padding: 8px 10px 9px;
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--bo-accent) 3%, transparent);
+}
+
+.blood-oracle .bo-lore-card.is-selected {
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle .bo-lore-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blood-oracle .bo-lore-head .bo-trait-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.blood-oracle .bo-lore-private {
+  flex: none;
+  color: var(--bo-text-muted);
+  cursor: help;
+}
+
+.blood-oracle .bo-lore-pips {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.blood-oracle .bo-lore-pip {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--bo-dot-empty);
+  border-radius: 50%;
+}
+
+.blood-oracle .bo-lore-pip.is-on {
+  background: var(--bo-dot);
+  border-color: var(--bo-dot);
+}
+
+.blood-oracle .bo-lore-ladder {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blood-oracle .bo-lore-ladder li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1px 0;
+  color: var(--bo-text-faint);
+  font-size: 15px;
+  cursor: help;
+}
+
+.blood-oracle .bo-lore-ladder li.is-owned {
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-lore-ladder li:hover {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-lore-level-dots {
+  flex: none;
+  min-width: 52px;
+  color: var(--bo-dot-empty);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.blood-oracle .is-owned > .bo-lore-level-dots,
+.blood-oracle .is-owned .bo-lore-level-head .bo-lore-level-dots,
+.blood-oracle .bo-lore-rule.is-owned .bo-lore-level-dots {
+  color: var(--bo-dot);
+}
+
+.blood-oracle .bo-lore-level-name {
+  min-width: 0;
+}
+
+/* Detail panel */
+.blood-oracle .bo-lore-actions {
+  display: flex;
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+
+.blood-oracle .bo-lore-privacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blood-oracle .bo-lore-privacy.is-private {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 60%, transparent);
+}
+
+/* Book text keeps its paragraphs. */
+.blood-oracle .bo-lore-text {
+  white-space: pre-line;
+}
+
+.blood-oracle .bo-lore-text.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.blood-oracle .bo-lore-text.is-clamped-short {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: var(--bo-text-muted);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-lore-levels {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.blood-oracle .bo-lore-level {
+  padding: 7px 10px;
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-lore-level.is-owned {
+  border-color: color-mix(in srgb, var(--bo-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 6%, transparent);
+}
+
+.blood-oracle .bo-lore-level-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blood-oracle .bo-lore-level-head .bo-lore-level-name {
+  flex: 1;
+  color: var(--bo-text);
+  font-weight: 600;
+}
+
+.blood-oracle .bo-lore-level:not(.is-owned) .bo-lore-level-name {
+  color: var(--bo-text-dim);
+  font-weight: 400;
+}
+
+.blood-oracle .bo-lore-level > .bo-lore-text:not(.is-clamped-short) {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--bo-text-dim);
+}
+
+/* Full rules */
+.blood-oracle .bo-lore-rules {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.blood-oracle .bo-lore-rule {
+  padding-top: 12px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-lore-rule h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  border: none;
+  color: var(--bo-text);
+  font-size: 17px;
+}
+
+.blood-oracle .bo-lore-rule.is-owned h4 {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-lore-taken {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-lore-rule .bo-lore-text {
+  margin: 0;
+}
+
+/* Picker */
+.blood-oracle .bo-picker.is-lore {
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+
+.blood-oracle .bo-picker.is-lore .bo-picker-list,
+.blood-oracle .bo-picker-preview.is-lore {
+  height: 470px;
+}
+
+.blood-oracle .bo-picker-preview.is-lore .bo-prose {
+  font-size: 16px;
+}
+
+.blood-oracle .bo-detail-sub.is-unavailable {
+  color: var(--bo-accent-red);
+}
+
+/* Tooltip with a title, used for loresheet levels. */
+.bo-hover-tip {
+  max-height: 420px;
+  overflow: hidden;
+}
+
+.bo-hover-tip-title {
+  margin-bottom: 4px;
+  color: var(--bo-accent, #c8a060);
+  font-weight: 700;
+}
+
+.bo-hover-tip-body {
+  white-space: pre-line;
+  color: var(--bo-text, #ede0d8);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.blood-oracle .bo-picker.is-lore .bo-catalog-meta {
+  white-space: normal;
+  text-align: right;
+  max-width: 45%;
+}
+
+/* Attribute and skill tooltips */
+.bo-trait-tip-specs {
+  display: block;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--bo-rule, #5a1020) 70%, transparent);
+  color: var(--bo-text-dim, #b89898);
+  font-size: 14px;
+  white-space: normal;
+}
+
+.bo-trait-tip-label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted, #7a5858);
+}
+
+/* ==========================================================================
+   v0.5 — coterie: type, grants dialog, advantages, shared block on members
+   ========================================================================== */
+
+.blood-oracle .bo-coterie-type-body {
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-coterie-type-body .bo-prose {
+  margin: 0 0 8px;
+}
+
+.blood-oracle .bo-coterie-extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+  margin-top: 8px;
+}
+
+.blood-oracle .bo-chip.is-static {
+  cursor: default;
+  color: var(--bo-text-muted);
+  border-style: dashed;
+}
+
+.blood-oracle .bo-chip.is-static:hover {
+  border-color: color-mix(in srgb, var(--bo-text-dim) 30%, transparent);
+}
+
+.blood-oracle .bo-grant-list {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+}
+
+.blood-oracle .bo-grant-list li {
+  padding: 2px 0;
+}
+
+.blood-oracle .bo-grant-list li.is-flaw {
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-grant-kind {
+  margin-left: 8px;
+  font-size: 11px;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--bo-accent-red);
+}
+
+.blood-oracle .bo-grant-choice {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-grant-spread {
+  display: grid;
+  gap: 4px;
+  max-width: 380px;
+}
+
+.blood-oracle .bo-grant-flaw {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.blood-oracle .bo-grant-flaw .bo-field {
+  flex: 1;
+}
+
+.blood-oracle .bo-grant-problems {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--bo-accent-red);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-coterie-advantages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px 28px;
+}
+
+.blood-oracle .bo-coterie-feature.is-open {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-coterie-feature-body {
+  padding: 6px 0 0 4px;
+}
+
+.blood-oracle .bo-coterie-feature-body .bo-prose {
+  margin: 8px 0 0;
+  font-size: 15px;
+}
+
+/* On a member's Merits & flaws tab */
+.blood-oracle .bo-shared-coterie {
+  margin-bottom: 22px;
+  padding: 8px 10px;
+  border: 1px dashed color-mix(in srgb, var(--bo-accent) 35%, transparent);
+  border-radius: 2px;
+}
+
+.blood-oracle .bo-stat-row.is-shared .bo-trait-name {
+  cursor: default;
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-shared-dots {
+  color: var(--bo-dot);
+  letter-spacing: 2px;
+  font-size: 13px;
+}
+
+.blood-oracle .bo-shared-sub {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bo-text-muted);
+}
+
+/* Coterie merit texts keep their paragraphs (resonance line, then the rules). */
+.blood-oracle .bo-coterie-feature-body .bo-prose,
+.blood-oracle .bo-picker-preview .bo-prose {
+  white-space: pre-line;
+}
+
+/* A one-line summary above a long description in the picker preview. */
+.blood-oracle .bo-picker-summary {
+  margin: 10px 0 0;
+  color: var(--bo-accent);
+  font-size: 16px;
+  font-style: italic;
+}
+
+/* Entity art: a thumbnail floated into the corner of a detail panel. */
+.blood-oracle .bo-entity-art {
+  float: right;
+  width: 104px;
+  height: 104px;
+  margin: 0 0 10px 16px;
+  padding: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bo-accent-red) 12%, transparent);
+  border: 1px solid var(--bo-edge);
+  border-radius: 2px;
+  box-shadow: none;
+  cursor: zoom-in;
+}
+
+.blood-oracle .bo-entity-art:hover {
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-entity-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+}
+
+/* ==========================================================================
+   v0.5 — character creation wizard. Reading sizes only: body 18, notes 16,
+   labels 14. Nothing smaller.
+   ========================================================================== */
+
+.blood-oracle .bo-header-button.is-accent {
+  color: var(--bo-accent);
+  border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
+}
+
+.blood-oracle.bo-chargen-window .blood-oracle-root {
+  overflow: hidden;
+}
+
+.blood-oracle .bo-chargen {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  height: 100%;
+  font-size: var(--bo-size-body);
+}
+
+.blood-oracle .bo-cg-side {
+  padding: 20px 18px;
+  border-right: 1px solid var(--bo-panel-border);
+  background: rgba(10, 3, 4, 0.55);
+  overflow-y: auto;
+}
+
+.blood-oracle .bo-cg-steps {
+  list-style: none;
+  margin: 8px 0 24px;
+  padding: 0;
+}
+
+.blood-oracle .bo-cg-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 17px;
+  color: var(--bo-text-faint);
+}
+
+.blood-oracle .bo-cg-steps li.is-reachable {
+  cursor: pointer;
+}
+
+.blood-oracle .bo-cg-steps li.is-done {
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-cg-steps li.is-current {
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-cg-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--bo-dot-empty);
+  border-radius: 50%;
+  font-size: 14px;
+}
+
+.blood-oracle .is-done .bo-cg-mark {
+  background: var(--bo-accent);
+  border-color: var(--bo-accent);
+  color: #120507;
+}
+
+.blood-oracle .is-current .bo-cg-mark {
+  border-color: var(--bo-red-glow);
+  color: var(--bo-red-glow);
+}
+
+.blood-oracle .bo-cg-skip {
+  margin-left: auto;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--bo-text-faint);
+}
+
+.blood-oracle .bo-cg-summary {
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-cg-sum-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  color: var(--bo-text-dim);
+}
+
+.blood-oracle .bo-cg-sum-line b {
+  color: var(--bo-text);
+  font-weight: 400;
+  text-align: right;
+}
+
+.blood-oracle .bo-cg-sum-block {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-cg-attrs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-cg-attr {
+  display: flex;
+  flex-direction: column;
+  color: var(--bo-text-dim);
+  font-size: 15px;
+}
+
+.blood-oracle .bo-cg-dots {
+  color: var(--bo-accent);
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.blood-oracle .bo-cg-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.blood-oracle .bo-cg-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 28px;
+}
+
+.blood-oracle .bo-cg-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border-top: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-cg-foot .bo-ghost,
+.blood-oracle .bo-cg-foot .bo-solid {
+  box-sizing: border-box;
+  height: 34px;
+  min-width: 110px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blood-oracle .bo-cg-foot .bo-solid:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+
+.blood-oracle .bo-cg-problem {
+  flex: 1;
+  color: var(--bo-text-muted);
+  font-size: var(--bo-size-note);
+  font-style: italic;
+}
+
+.blood-oracle .bo-cg-heading {
+  margin-bottom: 18px;
+}
+
+.blood-oracle .bo-cg-heading h2 {
+  margin: 0;
+  border: none;
+  color: var(--bo-red-glow);
+  font: 600 30px var(--bo-serif);
+}
+
+.blood-oracle .bo-cg-heading p {
+  margin: 4px 0 0;
+  color: var(--bo-text-dim);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-cg-note {
+  margin: 10px 0 0;
+  color: var(--bo-text-muted);
+  font-size: var(--bo-size-note);
+  font-style: italic;
+}
+
+.blood-oracle .bo-cg-note.is-large {
+  font-size: var(--bo-size-body);
+}
+
+.blood-oracle .bo-cg-block {
+  margin-bottom: 20px;
+}
+
+/* Cards: clans, predators, skill distributions */
+.blood-oracle .bo-cg-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.blood-oracle .bo-cg-cards.is-compact {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.blood-oracle .bo-cg-card,
+.blood-oracle .bo-cg-option,
+.blood-oracle .bo-cg-power,
+.blood-oracle .bo-cg-thin-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 11px 13px;
+  background: transparent;
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-cg-card:hover,
+.blood-oracle .bo-cg-option:hover,
+.blood-oracle .bo-cg-power:hover:not(:disabled),
+.blood-oracle .bo-cg-thin-item:hover {
+  border-color: var(--bo-edge);
+}
+
+.blood-oracle .bo-cg-card.is-selected,
+.blood-oracle .bo-cg-option.is-selected,
+.blood-oracle .bo-cg-power.is-selected,
+.blood-oracle .bo-cg-thin-item.is-selected {
+  border-color: var(--bo-accent);
+  background: color-mix(in srgb, var(--bo-accent) 8%, transparent);
+}
+
+.blood-oracle .bo-cg-card-name {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.blood-oracle .bo-cg-card-text {
+  color: var(--bo-text-dim);
+  font-size: var(--bo-size-note);
+  line-height: 1.4;
+}
+
+.blood-oracle .bo-cg-card-chips,
+.blood-oracle .bo-cg-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.blood-oracle .bo-cg-chip {
+  padding: 1px 9px;
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 40%, transparent);
+  border-radius: 12px;
+  color: var(--bo-accent);
+  font-size: 14px;
+}
+
+.blood-oracle .bo-cg-chip.is-muted {
+  color: var(--bo-text-muted);
+  border-color: var(--bo-panel-border);
+  font-style: italic;
+}
+
+.blood-oracle .bo-cg-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* Tiers for attributes and skills */
+.blood-oracle .bo-cg-tiers {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+}
+
+.blood-oracle .bo-cg-tiers li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  color: var(--bo-text-faint);
+  font-size: var(--bo-size-body);
+}
+
+.blood-oracle .bo-cg-tiers li.is-current {
+  color: var(--bo-text);
+}
+
+.blood-oracle .bo-cg-tiers li.is-current::before {
+  content: '›';
+  color: var(--bo-red-glow);
+  margin-right: -4px;
+}
+
+.blood-oracle .bo-cg-tiers li.is-done {
+  color: var(--bo-text-muted);
+  text-decoration: line-through;
+}
+
+.blood-oracle .bo-cg-tier-value {
+  color: var(--bo-accent);
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.blood-oracle .bo-cg-tier-count {
+  margin-left: auto;
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-cg-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 18px;
+}
+
+.blood-oracle .bo-cg-trait {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  min-height: 0;
+  margin: 0 0 7px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--bo-panel-border);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text);
+  font-family: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-cg-trait:hover:not(:disabled) {
+  border-color: var(--bo-edge);
+}
+
+.blood-oracle .bo-cg-trait.is-set {
+  border-color: color-mix(in srgb, var(--bo-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--bo-accent) 6%, transparent);
+}
+
+.blood-oracle .bo-cg-trait:disabled {
+  cursor: default;
+  color: var(--bo-text-dim);
+}
+
+/* Rows of label + field */
+.blood-oracle .bo-cg-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.blood-oracle .bo-cg-row .bo-field {
+  flex: 1;
+}
+
+.blood-oracle .bo-cg-row-label {
+  flex: none;
+  width: 130px;
+  color: var(--bo-accent);
+  font-size: 17px;
+}
+
+.blood-oracle .bo-cg-form {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.blood-oracle .bo-cg-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  max-width: 760px;
+}
+
+.blood-oracle .bo-cg-facts div {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-cg-facts span {
+  color: var(--bo-text-dim);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-cg-facts b {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* Predator */
+.blood-oracle .bo-cg-predator {
+  padding: 14px 16px;
+  border: 1px solid var(--bo-panel-border);
+}
+
+/* Disciplines */
+.blood-oracle .bo-cg-pickrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.blood-oracle .bo-chargen .bo-chip {
+  font-size: 16px;
+  padding: 3px 12px;
+}
+
+.blood-oracle .bo-chargen .bo-chip:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.blood-oracle .bo-cg-powers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+
+.blood-oracle .bo-cg-power-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.blood-oracle .bo-cg-power-level {
+  color: var(--bo-accent);
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.blood-oracle .bo-cg-power .bo-cg-card-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.blood-oracle .bo-cg-power.is-full {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.blood-oracle .bo-cg-power-req {
+  color: var(--bo-accent);
+  font-size: var(--bo-size-note);
+  font-style: italic;
+}
+
+.blood-oracle .bo-cg-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+
+.blood-oracle .bo-cg-thin {
+  display: grid;
+  gap: 6px;
+}
+
+.blood-oracle .bo-cg-thin-item .bo-cg-card-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* Touchstones */
+.blood-oracle .bo-cg-principle {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 12px;
+}
+
+/* Merits */
+.blood-oracle .bo-cg-counters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.blood-oracle .bo-cg-counter {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--bo-accent) 40%, transparent);
+}
+
+.blood-oracle .bo-cg-counter.is-flaw {
+  border-color: color-mix(in srgb, var(--bo-accent-red) 55%, transparent);
+}
+
+.blood-oracle .bo-cg-counter span {
+  color: var(--bo-text-dim);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-cg-counter b {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.blood-oracle .bo-cg-counter.is-over b {
+  color: var(--bo-red-glow);
+}
+
+.blood-oracle .bo-cg-adv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+
+.blood-oracle .bo-cg-adv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-cg-adv-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 17px;
+}
+
+.blood-oracle .bo-cg-adv-group {
+  color: var(--bo-text-muted);
+  font-size: 14px;
+}
+
+.blood-oracle .bo-cg-adv-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.blood-oracle .bo-cg-adv.is-fixed .bo-cg-adv-name {
+  color: var(--bo-text-dim);
+}
+
+/* ==========================================================================
+   v0.5 — level-up window. Reading sizes only, as in the wizard.
+   ========================================================================== */
+
+.blood-oracle .bo-xp-spend {
+  align-self: center;
+  justify-self: start;
+}
+
+.blood-oracle.bo-levelup-window .blood-oracle-root {
+  overflow: hidden;
+}
+
+.blood-oracle .bo-levelup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  height: 100%;
+  font-size: var(--bo-size-body);
+}
+
+.blood-oracle .bo-lu-main {
+  overflow-y: auto;
+  padding: 18px 24px 30px;
+}
+
+.blood-oracle .bo-lu-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-left: 1px solid var(--bo-panel-border);
+  background: rgba(10, 3, 4, 0.55);
+  overflow-y: auto;
+}
+
+.blood-oracle .bo-lu-section {
+  margin-bottom: 26px;
+}
+
+.blood-oracle .bo-lu-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--bo-rule);
+  padding-bottom: 4px;
+}
+
+.blood-oracle .bo-lu-section-head h3 {
+  margin: 0;
+  border: none;
+  color: var(--bo-red-glow);
+  font: 600 22px var(--bo-serif);
+}
+
+.blood-oracle .bo-lu-sub {
+  margin: 6px 0 10px;
+  color: var(--bo-text-muted);
+  font-size: var(--bo-size-note);
+  font-style: italic;
+}
+
+.blood-oracle .bo-lu-columns {
+  display: grid;
+  /* Three columns when a row fits, two or one when it does not — a name is
+     never squeezed under its dots. */
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 6px 26px;
+}
+
+.blood-oracle .bo-lu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--bo-panel-border) 60%, transparent);
+}
+
+.blood-oracle .bo-lu-row.is-raised .bo-lu-name {
+  color: var(--bo-accent);
+}
+
+.blood-oracle .bo-lu-name {
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+}
+
+.blood-oracle .bo-lu-dots,
+.blood-oracle .bo-lu-step {
+  flex: none;
+}
+
+.blood-oracle .bo-lu-note {
+  margin-left: 8px;
+  color: var(--bo-text-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.blood-oracle .bo-lu-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.blood-oracle .bo-lu-dots span {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--bo-dot-empty);
+  border-radius: 50%;
+}
+
+.blood-oracle .bo-lu-dots span.is-have {
+  background: var(--bo-dot);
+  border-color: var(--bo-dot);
+}
+
+.blood-oracle .bo-lu-dots span.is-new {
+  background: var(--bo-red-glow);
+  border-color: var(--bo-red-glow);
+  box-shadow: 0 0 6px rgba(var(--bo-glow-rgb), 0.6);
+}
+
+.blood-oracle .bo-lu-step {
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--bo-field-border);
+  border-radius: 2px;
+  box-shadow: none;
+  color: var(--bo-text-dim);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blood-oracle .bo-lu-step:hover:not(:disabled) {
+  color: var(--bo-accent);
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-lu-step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.blood-oracle .bo-lu-cost {
+  flex: none;
+  min-width: 48px;
+  text-align: right;
+  color: var(--bo-accent);
+  font-size: var(--bo-size-note);
+}
+
+.blood-oracle .bo-lu-powers {
+  margin: 8px 0 14px 12px;
+}
+
+.blood-oracle .bo-lu-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.blood-oracle .bo-lu-totals div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border: 1px solid var(--bo-panel-border);
+}
+
+.blood-oracle .bo-lu-totals span {
+  color: var(--bo-text-dim);
+  font-size: 14px;
+}
+
+.blood-oracle .bo-lu-totals b {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.blood-oracle .bo-lu-totals .is-over b {
+  color: var(--bo-red-glow);
+}
+
+.blood-oracle .bo-lu-lines {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+}
+
+.blood-oracle .bo-lu-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: var(--bo-size-note);
+  border-bottom: 1px solid color-mix(in srgb, var(--bo-panel-border) 50%, transparent);
+}
+
+.blood-oracle .bo-lu-line span:last-child {
+  flex: none;
+  color: var(--bo-accent);
+  text-align: right;
+}
+
+.blood-oracle .bo-lu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.blood-oracle .bo-lu-actions .bo-cg-problem {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.blood-oracle .bo-lu-actions .bo-ghost,
+.blood-oracle .bo-lu-actions .bo-solid {
+  box-sizing: border-box;
+  height: 34px;
+  min-width: 110px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blood-oracle .bo-lu-actions .bo-solid:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+
+.blood-oracle .bo-lu-table .bo-lu-line span:last-child {
+  color: var(--bo-text-dim);
+}
+
+.bo-dialog-warning {
+  color: var(--bo-red-glow, #ff3050);
+  font-weight: 700;
+}
+
+/* The violet of Willpower, for things of lore — the loresheet buttons. */
+.blood-oracle .bo-ghost.is-arcane {
+  color: var(--bo-wp);
+  border-color: color-mix(in srgb, var(--bo-wp) 40%, transparent);
+}
+
+.blood-oracle .bo-ghost.is-arcane:hover:not(:disabled) {
+  border-color: var(--bo-wp);
+}

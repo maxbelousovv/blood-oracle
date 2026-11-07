@@ -4,6 +4,7 @@ import App from '../app/App.jsx'
 import ErrorBoundary from '../app/components/ErrorBoundary.jsx'
 import { createStore } from '../app/store.js'
 import { syncTracks } from '../app/schema/derived.js'
+import { BloodOracleChargen } from './chargen-app.js'
 
 const { DocumentSheetV2 } = foundry.applications.api
 
@@ -31,7 +32,23 @@ export class BloodOracleSheet extends DocumentSheetV2 {
     form: {
       submitOnChange: false,
       closeOnSubmit: false
+    },
+    actions: {
+      openChargen: BloodOracleSheet.#openChargen
     }
+  }
+
+  /** The window menu's way back into the creator, for those who chose by hand. */
+  static #openChargen() {
+    BloodOracleChargen.start(this.document)
+  }
+
+  _getHeaderControls() {
+    const controls = super._getHeaderControls()
+    if (this.document.type === 'vampire' && this.isEditable) {
+      controls.push({ icon: 'fa-solid fa-wand-magic-sparkles', label: 'Character creator', action: 'openChargen' })
+    }
+    return controls
   }
 
   #root = null
