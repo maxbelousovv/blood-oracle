@@ -1,6 +1,7 @@
 import RichText from '../components/RichText.jsx'
 import { SectionTitle } from '../components/primitives.jsx'
 import { getHungerDice } from '../roll/bridge.js'
+import { usesHunger } from '../splats.js'
 
 /**
  * The limited view, shown to players who are not owners of this character.
@@ -15,10 +16,12 @@ import { getHungerDice } from '../roll/bridge.js'
  */
 export default function LimitedView({ actor }) {
   const hunger = getHungerDice(actor)
-  const isVampire = actor.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
+  const isVampire = usesHunger(actor)
+
+  const scrollTheme = ['ghoul', 'spc', 'mortal'].includes(actor.type) ? actor.type : undefined
 
   return (
-    <div className="bo-app">
+    <div className={['hunter', 'werewolf'].includes(actor.type) ? 'bo-app bo-splat-' + actor.type : 'bo-app'} data-scroll-theme={scrollTheme}>
       <header className="bo-header">
         {actor.img ? <img src={actor.img} alt="" className="bo-portrait" /> : null}
         <div style={{ flex: 1, minWidth: 0 }}>

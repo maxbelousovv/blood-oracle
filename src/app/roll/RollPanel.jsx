@@ -1,3 +1,9 @@
+import HunterCounters from '../components/HunterCounters.jsx'
+import { hunterCounter } from '../schema/hunter-state.js'
+import { edgePoolSlots } from '../schema/hunter-edges.js'
+import { readSingleton } from '../schema/singletons.js'
+import { findCreed } from '../rules/creeds.js'
+import { hunterInDespair } from '../schema/touchstones.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, GhostButton } from '../components/primitives.jsx'
 import Select from '../components/Select.jsx'
@@ -6,9 +12,18 @@ import { getAllDisciplines } from '../schema/custom-disciplines.js'
 import { composePool } from './pool.js'
 import { getHungerDice, splitPool } from './bridge.js'
 import { rouseCheck } from './checks.js'
+import { rollHunter } from './hunter.js'
+import { hunterEquipmentForRoll } from './hunter-equipment.js'
+import HunterEquipmentRoll from './HunterEquipmentRoll.jsx'
 import OddsPopover from './OddsPopover.jsx'
 import { coterieDomainFor, huntingDifficulty } from '../schema/coterie.js'
 import Stepper from '../components/Stepper.jsx'
+import { splatOf, storyCharacterType, usesHunger } from '../splats.js'
+import GarouRollOptions, { packRollOptions } from './GarouRollOptions.jsx'
+import { garouPackContext } from '../schema/pack-effects.js'
+import { attackDamageType, availableNaturalAttacks, crinosTurnPending, naturalAttackFlavor, targetedActors } from './garou-combat.js'
+import { formModifiers, GAROU_RENOWN, rageOf } from '../schema/werewolf.js'
+import { werewolfRollFlavor } from './werewolf.js'
 
 const EMPTY = { kind: null, id: null, label: '' }
 const SLOT_COUNT = 3
@@ -18,7 +33,17 @@ const SLOT_COUNT = 3
  * Storyteller modifier, with blood surge, specialty and resonance applied on
  * top. Every contribution is listed so the number can be argued with.
  */
-export default function RollPanel({ actor, editable, initialSlots, onClose }) {
+export default function RollPanel({ actor, editable, initialSlots, edgePool, onClose }) {
+  const storyType = storyCharacterType(actor)
+  const garou = actor.type === 'werewolf'
+  const [rageAids, setRageAids] = useState(false)
+  const [packChoice, setPackChoice] = useState({})
+  const [naturalChoice, setNaturalChoice] = useState('')
+  const [naturalTarget, setNaturalTarget] = useState('')
+  const [clawsHarm, setClawsHarm] = useState('auto')
+  const [mundaneSocial, setMundaneSocial] = useState(true)
+  const [minorAction, setMinorAction] = useState(false)
+  const [resistMentalPower, setResistMentalPower] = useState(false)
   const [slots, setSlots] = useState(() => Array.from({ length: SLOT_COUNT }, () => EMPTY))
   const [modifier, setModifier] = useState(0)
   const [difficulty, setDifficulty] = useState(0)
@@ -31,6 +56,12 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   const [useResonance, setUseResonance] = useState(false)
   const [useWeaponDamage, setUseWeaponDamage] = useState(false)
   const [rolling, setRolling] = useState(false)
+  const [consequence, setConsequence] = useState(null)
+  const rollingRef = useRef(false)
+  const pendingConsequence = useRef(null)
+  useEffect(() => () => pendingConsequence.current?.(null), [])
+  const [useDesperation, setUseDesperation] = useState(false)
+  const [equipmentChoice, setEquipmentChoice] = useState({})
   // The coterie's domain: Lien adds dice; hunting there sets the difficulty
   // from Chasse, and the difficulty it replaced comes back when it is undone.
   const [useLien, setUseLien] = useState(false)
@@ -64,7 +95,8 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
       }))
     )
     // Only disciplines the character actually has are offered.
-    const disciplines = getAllDisciplines()
+    const disciplines = (garou || actor.type === 'hunter' || (storyType && !splatOf(actor).tabs.includes('disciplines'))
+      ? [] : getAllDisciplines())
       .filter((entry) => Number(actor.system.disciplines?.[entry.id]?.value) > 0)
       .map((entry) => ({
         key: `discipline:${entry.id}`,
@@ -74,8 +106,9 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
         group: 'Disciplines'
       }))
 
-    return [...attributes, ...skills, ...disciplines]
-  }, [actor])
+    const renown = garou ? GAROU_RENOWN.map(([id, label]) => ({ key: 'renown:' + id, kind: 'renown', id, label, group: 'Renown' })) : []
+    return [...attributes, ...skills, ...disciplines, ...renown]
+  }, [actor, garou, storyType])
 
   // What the dropdown shows. A skill with no dots can still be rolled — the
   // Attribute alone — so it is not removed, only moved to the end and muted.
@@ -85,7 +118,7 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
         ? `system.attributes.${option.id}.value`
         : option.kind === 'skill'
           ? `system.skills.${option.id}.value`
-          : `system.disciplines.${option.id}.value`
+          : option.kind === 'renown' ? `system.renown.${option.id}.value` : `system.disciplines.${option.id}.value`
     return Number(foundry.utils.getProperty(actor, path)) || 0
   }
 
@@ -109,7 +142,17 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
     return [...trained, ...untrained]
   })()
 
-  const domain = coterieDomainFor(actor)
+  const hunter = actor.type === 'hunter'
+  const poolSlots = edgePool ? edgePoolSlots(edgePool, [...getAttributeGroups(), ...getSkillGroups()]) : slots
+  const equipment = hunter && !edgePool ? hunterEquipmentForRoll(actor, slots, equipmentChoice) : null
+  const updateEquipment = (patch) => setEquipmentChoice((previous) => ({ ...previous, ...patch }))
+  const inDespair = hunterInDespair(actor)
+  const desperation = hunter ? hunterCounter(actor, 'desperation') : 0
+  const creed = hunter ? readSingleton(actor, 'creed') : null
+  const hasDrive = hunter && Boolean(readSingleton(actor, 'drive'))
+  const creedField = findCreed(creed?.name)?.field || creed?.system.desperationFields || actor.system.headers?.creedfields
+  const canUseDesperation = !inDespair && hasDrive && Boolean(creedField?.trim()) && desperation > 0
+  const domain = hunter || garou ? null : coterieDomainFor(actor)
   const lienDice = domain && !domain.secret && useLien && !huntingInDomain ? domain.lien : 0
   const huntDifficulty = domain && !domain.secret ? huntingDifficulty(domain.chasse) : null
 
@@ -125,14 +168,32 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
     setHuntingInDomain(on)
   }
 
+  const formRules = garou ? formModifiers(actor, poolSlots, mundaneSocial) : null
+  const pack = garou ? garouPackContext(actor) : null
+  const packOptions = garou ? packRollOptions(actor, pack, poolSlots) : []
+  const attackChoices = garou ? availableNaturalAttacks(actor, poolSlots) : []
+  const attack = attackChoices.find(({ id }) => id === naturalChoice)
+  const targets = garou ? targetedActors() : []
+  const target = targets.find(({ uuid }) => uuid === (naturalTarget || (targets.length === 1 ? targets[0].uuid : '')))
+  const packParts = packOptions.filter(({ id }) => id !== 'well-hidden' && packChoice[id])
+  const hiding = Number(difficulty) && packChoice['well-hidden'] ? (packOptions.find(({ id }) => id === 'well-hidden')?.value ?? 0) : 0
+  const rollDifficulty = Number(difficulty) + hiding
+  const crinosPending = garou && crinosTurnPending(actor)
+  const formParts = formRules ? [
+    ...formRules.parts,
+    ...packParts,
+    ...(minorAction ? [{ label: 'Shapeshifting', value: -2 }] : []),
+    ...(resistMentalPower && actor.system.frenzyActive ? [{ label: 'Frenzy · Mental resistance', value: 3 }] : [])
+  ] : null
   const composition = composePool(actor, {
-    slots,
+    slots: poolSlots,
     modifier,
     options: {
       bloodSurge,
       specialty: specialtyKey,
       useResonance,
-      useWeaponDamage,
+      useWeaponDamage: !hunter && useWeaponDamage,
+      equipmentParts: equipment?.parts ?? formParts,
       lien: lienDice,
       lienLabel: domain?.group?.name
     }
@@ -163,7 +224,26 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   }, [skillSignature])
 
   const hunger = getHungerDice(actor)
-  const { basicDice, advancedDice } = splitPool(composition.total, hunger)
+  const pool = composition.total
+  const usesRage = garou || storyType === 'werewolf'
+  const advanced = usesRage ? rageOf(actor) : hunger
+  const { basicDice, advancedDice } = hunter
+    ? { basicDice: pool, advancedDice: useDesperation && canUseDesperation ? desperation : 0 }
+    : splitPool(pool, storyType || garou ? Math.min(pool, advanced) : hunger)
+  const canRoll = editable && composition.canRoll && !formRules?.blocked && !crinosPending &&
+    (!hunter || !advancedDice || difficulty > 0)
+  const damageNote = equipment?.damage == null ? '' : (
+    equipment.damage < 0
+      ? `Damage on a win: margin − ${Math.abs(equipment.damage)}.`
+      : `Damage on a win: margin + ${equipment.damage}.`
+  )
+  const attackNotes = equipment ? [
+    equipment.weapon?.name,
+    equipment.ammo?.name,
+    equipment.calledShot ? `Called shot: ${equipment.calledShot}` : '',
+    damageNote,
+    ...equipment.effects
+  ].filter(Boolean) : []
 
   const setSlot = (index, key) => {
     const found = options.find((option) => option.key === key)
@@ -171,6 +251,9 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
   }
 
   const doRoll = async () => {
+    if (!canRoll || rollingRef.current) return
+    rollingRef.current = true
+    setOddsOpen(false)
     setRolling(true)
     try {
       // Blood surge is paid for with a Rouse check, made before the roll so the
@@ -179,35 +262,77 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
         await rouseCheck(actor, { title: 'Blood Surge' })
       }
 
-      await WOD5E.api.Roll({
+      const partsLabel = composition.parts
+        .map((part) => `${part.label} ${part.value >= 0 ? '+' : '−'}${Math.abs(part.value)}`)
+        .join(' ')
+      const flavor = hunter
+        ? [partsLabel, ...attackNotes].filter(Boolean).map((part) => foundry.utils.escapeHTML(part)).join(' · ')
+        : (composition.weaponBonus ? `Weapon +${composition.weaponBonus} · ` : '') + partsLabel
+      const options = {
         basicDice,
         advancedDice,
         actor,
         data: actor.system,
-        title: composition.label || 'Rolling',
-        flavor: (composition.weaponBonus ? `Weapon +${composition.weaponBonus} · ` : '') +
-          composition.parts
-          .map((part) => `${part.label} ${part.value >= 0 ? '+' : '−'}${Math.abs(part.value)}`)
-          .join(' '),
-        difficulty: Number(difficulty) || 0,
+        title: edgePool?.name ?? (composition.label || 'Rolling'),
+        macro: edgePool?.system.macroid,
+        flavor: garou ? werewolfRollFlavor({
+          flavor: foundry.utils.escapeHTML(flavor) + (attack ? naturalAttackFlavor(attack, target, clawsHarm) : ''),
+          rageAids: rageAids || Boolean(attack), frenzy: actor.system.frenzyActive
+        }) : flavor,
+        difficulty: rollDifficulty || 0,
         quickRoll: true,
-        selectors: slots.filter((slot) => slot?.id).map((slot) => slot.id)
-      })
+        selectors: edgePool
+          ? ['edges', `edges.${edgePool.system.edge}`, ...poolSlots.flatMap(({ kind, id }) => {
+            const category = kind === 'skill' ? 'skills' : 'attributes'
+            return [category, id, category + '.' + id]
+          })]
+          : slots.filter((slot) => slot?.id).map((slot) => slot.id)
+      }
+      if (hunter) {
+        if (inDespair) options.selectors.push('despair')
+        await rollHunter(actor, options, (ones) => new Promise((resolve) => {
+          pendingConsequence.current = resolve
+          setConsequence(ones)
+        }))
+      } else {
+        await WOD5E.api.Roll(options)
+      }
       onClose?.()
     } catch (error) {
       console.error('Blood Oracle | Roll failed', error)
       ui.notifications.error('The roll could not be completed. See the console for details.')
     } finally {
+      rollingRef.current = false
       setRolling(false)
     }
+  }
+
+  const resolveConsequence = (choice) => {
+    pendingConsequence.current?.(choice)
+    pendingConsequence.current = null
+    setConsequence(null)
+  }
+
+  if (consequence) {
+    return (
+      <Modal title="Overreach or Despair">
+        <p className="bo-prose">Keep the win and raise Danger by up to {consequence}, or accept a failed test and enter Despair.</p>
+        <div className="bo-roll-footer">
+          <div className="bo-roll-actions">
+            <GhostButton onClick={() => resolveConsequence('despair')}>Accept Despair</GhostButton>
+            <button type="button" className="bo-solid" onClick={() => resolveConsequence('overreach')}>Overreach</button>
+          </div>
+        </div>
+      </Modal>
+    )
   }
 
   const chosenKey = composition.chosenSpecialty?.key ?? ''
   const manySkills = composition.specialtyChoices.length > 1
 
   return (
-    <Modal title="Build a pool" onClose={onClose}>
-      <div style={{ display: 'grid', gap: '11px' }}>
+    <Modal title={edgePool?.name ?? 'Build a pool'} onClose={rolling ? undefined : onClose}>
+      {!edgePool ? <div style={{ display: 'grid', gap: '11px' }}>
         {slots.map((slot, index) => (
           <label key={index} className="bo-field-label">
             <span>Trait {index + 1}</span>
@@ -220,9 +345,10 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
             />
           </label>
         ))}
-      </div>
+      </div> : null}
 
       <div className="bo-block">
+        {!hunter && !garou && (!storyType || usesHunger(actor)) ? (
         <label className={bloodSurge ? 'bo-toggle is-surge is-on' : 'bo-toggle is-surge'}>
           <input
             type="checkbox"
@@ -235,7 +361,7 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
               ? `+${composition.surge} dice · costs a Rouse check`
               : `+${composition.surge} at Blood Potency ${composition.potency}`}
           </span>
-        </label>
+        </label>) : null}
 
         {/* One specialty per roll, picked from chips: all of them in sight, so a
             player sees there are several, without a list breaking the block. */}
@@ -281,7 +407,7 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
           )}
         </div>
 
-        <label
+        {!hunter && !garou ? <label
           className={composition.weaponBonusAvailable ? 'bo-toggle' : 'bo-toggle is-disabled'}
         >
           <input
@@ -298,9 +424,9 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
                 ? 'no equipped weapon of that kind'
                 : 'only for Melee and Firearms'}
           </span>
-        </label>
+        </label> : null}
 
-        <label className={composition.resonanceAvailable ? 'bo-toggle' : 'bo-toggle is-disabled'}>
+        {!hunter && !garou ? <label className={composition.resonanceAvailable ? 'bo-toggle' : 'bo-toggle is-disabled'}>
           <input
             type="checkbox"
             checked={useResonance}
@@ -313,8 +439,69 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
               ? `+1 · ${composition.resonance.humour} ${composition.resonance.temperament}`
               : 'no resonance matching the chosen discipline'}
           </span>
-        </label>
+        </label> : null}
       </div>
+
+      {garou ? <div className="bo-block">
+        {crinosPending ? <p className="bo-roll-note is-red">Resolve the start of this Crinos turn in Forms.</p> : null}
+        {formRules.blocked ? <p className="bo-roll-note is-red">This test automatically fails in Crinos.</p> : null}
+        <label className="bo-toggle">
+          <input type="checkbox" checked={rageAids || Boolean(attack)} disabled={Boolean(attack)} onChange={(event) => setRageAids(event.target.checked)} />
+          <span>Rage aids this test</span>
+          <span className="bo-toggle-note">A Brutal Outcome adds four successes.</span>
+        </label>
+        {formRules.socialTarget ? <label className="bo-toggle">
+          <input type="checkbox" checked={mundaneSocial} onChange={(event) => setMundaneSocial(event.target.checked)} />
+          <span>Social test against a human</span>
+        </label> : null}
+        <label className="bo-toggle">
+          <input type="checkbox" checked={minorAction} onChange={(event) => setMinorAction(event.target.checked)} />
+          <span>Shifted form this turn</span>
+          <span className="bo-toggle-note">−2 dice for the minor action.</span>
+        </label>
+        {actor.system.frenzyActive ? <label className="bo-toggle">
+          <input type="checkbox" checked={resistMentalPower} onChange={(event) => setResistMentalPower(event.target.checked)} />
+          <span>Resisting a mental Gift or similar power</span>
+        </label> : null}
+      </div> : null}
+
+      {garou && attackChoices.length ? <div className="bo-block">
+        <div className="bo-pair-grid">
+          <label className="bo-field-label"><span>Natural attack</span>
+            <Select value={attack?.id || ''} options={[{ value: '', label: 'None' }, ...attackChoices.map(({ id, name, bonus }) => ({ value: id, label: name + ' · +' + bonus + ' damage' }))]}
+              onChange={setNaturalChoice} /></label>
+          {attack && targets.length ? <label className="bo-field-label"><span>Target</span>
+            <Select value={target?.uuid ?? 'none'} options={[{ value: 'none', label: 'No target' }, ...targets.map(({ uuid, name }) => ({ value: uuid, label: name }))]}
+              onChange={setNaturalTarget} /></label> : null}
+          {attack?.id === 'claws' ? <label className="bo-field-label"><span>Claw damage type</span>
+            <Select value={clawsHarm} options={[{ value: 'auto', label: target ? 'From target · ' + attackDamageType(attack, target) : 'From target' },
+              { value: 'superficial', label: 'Superficial' }, { value: 'aggravated', label: 'Aggravated' }]} onChange={setClawsHarm} /></label> : null}
+        </div>
+        {attack ? <p className="bo-roll-note">On a win, add {attack.bonus} damage to the margin. Set Difficulty to calculate it in chat.</p> : null}
+      </div> : null}
+      {garou ? <GarouRollOptions group={pack?.group} options={packOptions} choice={packChoice} difficulty={difficulty}
+        onChange={(id, on) => setPackChoice((previous) => ({ ...previous, [id]: on }))} /> : null}
+      {hiding ? <p className="bo-roll-note">Difficulty with Well-Hidden · {rollDifficulty}</p> : null}
+
+      {equipment ? (
+        <HunterEquipmentRoll equipment={equipment} choice={equipmentChoice}
+          update={updateEquipment} disabled={!editable || rolling} />
+      ) : null}
+
+      {hunter ? (
+        <div className="bo-block">
+          <HunterCounters actor={actor} disabled={!editable || rolling} />
+          <label className="bo-toggle">
+            <input type="checkbox" checked={useDesperation && canUseDesperation} disabled={!editable || !canUseDesperation || rolling}
+              onChange={(event) => setUseDesperation(event.target.checked)} />
+            <span>Add Desperation dice</span>
+            <span className="bo-toggle-note">
+              {inDespair ? 'Unavailable in Despair' : !hasDrive ? 'Choose a Drive in Biography' : !creedField ? 'Record a Creed field' : creedField}
+            </span>
+          </label>
+          {advancedDice && !difficulty ? <p className="bo-roll-note">Set a difficulty to resolve Desperation.</p> : null}
+        </div>
+      ) : null}
 
       {domain ? (
         <div className="bo-block">
@@ -385,25 +572,28 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
 
         <div className="bo-roll-summary">
           <p className="bo-prose">
-            Rolling <strong>{basicDice}</strong> normal and{' '}
-            <strong style={{ color: 'var(--bo-red-glow)' }}>{advancedDice}</strong> hunger.
+            Rolling <strong>{basicDice}</strong> normal
+            {(!storyType && !garou) || advancedDice > 0 ? (
+              <> and <strong style={{ color: 'var(--bo-red-glow)' }}>{advancedDice}</strong> {hunter ? 'Desperation' : usesRage ? 'Rage' : 'hunger'}</>
+            ) : ' dice'}.
           </p>
-          <button
+          {!usesRage ? <button
             ref={oddsRef}
             type="button"
             className={oddsOpen ? 'bo-ghost is-accent is-open' : 'bo-ghost'}
-            disabled={!composition.canRoll}
+            disabled={!canRoll}
             onClick={() => setOddsOpen((open) => !open)}
             title="Chances for this pool"
           >
             Odds
-          </button>
+          </button> : null}
         </div>
         {composition.weaponBonus ? (
           <p className="bo-roll-note">
             Plus {composition.weaponBonus} damage on a win — added to successes, not rolled.
           </p>
         ) : null}
+        {attackNotes.length ? <p className="bo-roll-note">{attackNotes.join(' · ')}</p> : null}
         {composition.unequippedWarning ? (
           <p className="bo-roll-note is-accent">A weapon of that kind is carried but not equipped.</p>
         ) : null}
@@ -416,30 +606,32 @@ export default function RollPanel({ actor, editable, initialSlots, onClose }) {
 
       {/* The numbers the Storyteller calls out sit by the button they feed. */}
       <div className="bo-roll-footer">
-        <Stepper label="Modifier" value={modifier} min={-10} max={10} onChange={setModifier} />
-        <Stepper label="Difficulty" value={difficulty} min={0} max={15} onChange={setDifficulty} />
+        <Stepper label="Modifier" value={modifier} min={-10} max={10} onChange={setModifier} disabled={rolling} />
+        <Stepper label="Difficulty" value={difficulty} min={0} max={15} onChange={setDifficulty} disabled={rolling} />
         <div className="bo-roll-actions">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <GhostButton onClick={onClose} disabled={rolling}>Cancel</GhostButton>
           <button
             type="button"
             className="bo-solid"
             onClick={doRoll}
-            disabled={rolling || !composition.canRoll}
+            disabled={rolling || !canRoll}
           >
             {rolling ? 'Rolling…' : 'Roll'}
           </button>
         </div>
       </div>
 
-      {oddsOpen && composition.canRoll ? (
+      {oddsOpen && canRoll && !usesRage ? (
         <OddsPopover
           anchor={oddsRef.current}
           basicDice={basicDice}
           hungerDice={advancedDice}
+          hunter={hunter}
           difficulty={difficulty}
           onClose={closeOdds}
         />
       ) : null}
+
     </Modal>
   )
 }

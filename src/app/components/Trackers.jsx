@@ -68,9 +68,8 @@ function DamageBox({ state, onClick, onRightClick, size = 18 }) {
  * Fortitude, merits, flaws. Shown as the bonus alone, with the formula and the
  * resulting maximum in its tooltip, so the label row stays quiet.
  */
-function BonusStepper({ bonus, base, max, formula, onChange, disabled, locked }) {
+function BonusStepper({ bonus, base, max, formula, onChange, locked }) {
   const step = (delta) => {
-    if (disabled) return
     if (locked) return warnLocked()
     onChange(bonus + delta)
   }
@@ -78,19 +77,19 @@ function BonusStepper({ bonus, base, max, formula, onChange, disabled, locked })
   const sign = bonus > 0 ? '+' : bonus < 0 ? '−' : '±'
   const title =
     `${formula} = ${base}` +
-    (bonus ? `, ${bonus > 0 ? '+' : '−'}${Math.abs(bonus)} from Fortitude, merits or flaws` : '') +
+    (bonus ? `, ${bonus > 0 ? '+' : '−'}${Math.abs(bonus)} from bonuses or penalties` : '') +
     ` → ${max} boxes. Use − and + for anything beyond the core formula.`
 
   return (
     <span className="bo-bonus" title={title}>
-      <button type="button" className="bo-bonus-step" onClick={() => step(-1)} disabled={disabled}>
+      <button type="button" className="bo-bonus-step" aria-label="Decrease modifier" onClick={() => step(-1)}>
         −
       </button>
       <span className={bonus ? 'bo-bonus-value is-set' : 'bo-bonus-value'}>
         {sign}
         {Math.abs(bonus)}
       </span>
-      <button type="button" className="bo-bonus-step" onClick={() => step(1)} disabled={disabled}>
+      <button type="button" className="bo-bonus-step" aria-label="Increase modifier" onClick={() => step(1)}>
         +
       </button>
     </span>
@@ -105,7 +104,9 @@ export function DamageTracker({
   onUpdate,
   disabled,
   onRoll,
-  bonus
+  bonus,
+  maximumControl,
+  ignoreImpairment = false
 }) {
   const boxes = []
   for (let i = 0; i < max; i++) {
@@ -137,7 +138,7 @@ export function DamageTracker({
     else onUpdate(clamp({ superficial, aggravated: aggravated + 1 }))
   }
 
-  const impaired = max > 0 && superficial + aggravated >= max
+  const impaired = !ignoreImpairment && max > 0 && superficial + aggravated >= max
 
   return (
     <div className="bo-tracker">
@@ -149,12 +150,25 @@ export function DamageTracker({
           {label}
           {impaired ? <span style={{ marginLeft: '10px' }}>· Impaired</span> : null}
         </div>
+        {!disabled && (bonus || maximumControl) ? (
+          <details className="bo-track-adjust">
+            <summary className="bo-mini" title={'Adjust maximum ' + label} aria-label={'Adjust maximum ' + label}>⚙</summary>
+            <div className="bo-track-adjust-body">
+              {bonus ? (
+                <>
+                  <div className="bo-label">{label} maximum</div>
+                  <p className="bo-roll-note">{bonus.formula} · {bonus.base} before modifiers</p>
+                  <BonusStepper {...bonus} max={max} />
+                </>
+              ) : maximumControl}
+            </div>
+          </details>
+        ) : null}
         {onRoll ? (
           <button type="button" className="bo-mini" title={`Roll ${label}`} onClick={onRoll}>
             ⚀
           </button>
         ) : null}
-        {bonus ? <BonusStepper {...bonus} max={max} disabled={disabled} /> : null}
       </div>
       <div className="bo-tracker-boxes">
         {boxes.map((state, index) => (

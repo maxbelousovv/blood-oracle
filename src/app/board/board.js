@@ -21,7 +21,8 @@ export const PALETTES = [
   { id: 'bo-splat-vampire', label: 'Vampire' },
   { id: 'bo-splat-ghoul', label: 'Ghoul' },
   { id: 'bo-splat-mortal', label: 'Mortal' },
-  { id: 'bo-splat-spc', label: 'Violet' }
+  { id: 'bo-splat-hunter', label: 'Hunter' },
+  { id: 'bo-splat-spc', label: 'Story Character' }
 ]
 
 export function readPalette(journal) {

@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import PackTab, { PackBonds } from './PackTab.jsx'
+import PickerModal from '../components/PickerModal.jsx'
+import HunterCounters from '../components/HunterCounters.jsx'
 import DotTracker from '../components/DotTracker.jsx'
 import RichText from '../components/RichText.jsx'
 import { SectionTitle, GhostButton, Modal } from '../components/primitives.jsx'
@@ -13,7 +16,7 @@ import { warnLocked } from '../lock.js'
 import Select from '../components/Select.jsx'
 import { TraitTip, useDelayedTip } from '../components/TraitTip.jsx'
 import { CoterieAdvantages, CoterieTypeSection } from '../components/Coterie.jsx'
-import { isSecretMember, setSecretMember } from '../schema/coterie.js'
+import { groupOf, isSecretMember, setSecretMember } from '../schema/coterie.js'
 
 /**
  * Groups: a coterie of Kindred, a pack of Garou, a cell of hunters.
@@ -50,15 +53,6 @@ const RATINGS = {
       path: 'system.portillon.value',
       info: 'How well the domain is secured against intrusion: wards, watchers, locked doors and the loyalty of those who hold the keys.'
     }
-  ],
-  pack: [
-    { id: 'territory', label: 'Territory', path: 'system.territory.value' },
-    { id: 'community', label: 'Community', path: 'system.community.value' },
-    { id: 'spirit', label: 'Spirit', path: 'system.spirit.value' }
-  ],
-  cell: [
-    { id: 'desperation', label: 'Desperation', path: 'system.desperation.value' },
-    { id: 'danger', label: 'Danger', path: 'system.danger.value' }
   ]
 }
 
@@ -97,6 +91,7 @@ function RatingRow({ actor, rating, editable, locked }) {
  */
 function MemberPicker({ actor, taken, onClose }) {
   const [query, setQuery] = useState('')
+  const adding = useRef(false)
 
   // Built from a plain array rather than the collection's own helpers, so a
   // difference in Foundry's Collection API cannot take the sheet down with it.
@@ -113,27 +108,37 @@ function MemberPicker({ actor, taken, onClose }) {
     .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
 
   const add = async (member) => {
+    if (adding.current) return
+    if (!member.isOwner) return ui.notifications.warn('You need edit access to the member.')
+    adding.current = true
     try {
-      const existingGroupId = member.system?.group
-      const existingGroup = existingGroupId ? game.actors.get(existingGroupId) : null
-
-      if (existingGroup && existingGroup.id !== actor.id) {
-        ui.notifications.warn(`${member.name} already belongs to ${existingGroup.name}.`)
+      const existing = groupOf(member)
+      if (existing && existing.id !== actor.id) {
+        ui.notifications.warn(`${member.name} already belongs to ${existing.name}.`)
         return
       }
-
-      await actor.update({ 'system.members': [...taken, member.uuid] })
-      // The back-reference the system relies on to spot double membership.
-      await member.update({ 'system.group': actor.id })
+      const roster = actor.system.members ?? []
+      const oldGroup = member.system?.group ?? ''
+      if (!roster.includes(member.uuid)) {
+        await member.update({ 'system.group': actor.id })
+        try {
+          await actor.update({ 'system.members': [...(actor.system.members ?? []), member.uuid] })
+        } catch (error) {
+          await member.update({ 'system.group': oldGroup })
+          throw error
+        }
+      }
+      onClose()
     } catch (error) {
       console.error('Blood Oracle | Could not add member', error)
-      ui.notifications.error('Could not add that member — see the console for details.')
+      ui.notifications.error('Could not add that member.')
+    } finally {
+      adding.current = false
     }
-    onClose()
   }
 
   return (
-    <Modal title="Add member" onClose={onClose}>
+    <PickerModal title="Add member" onClose={onClose}>
       <label className="bo-field-label" style={{ marginBottom: '12px' }}>
         <span>Search</span>
         <input
@@ -146,7 +151,7 @@ function MemberPicker({ actor, taken, onClose }) {
         />
       </label>
 
-      <ul className="bo-catalog-list" style={{ maxHeight: '320px' }}>
+      <ul className="bo-catalog-list" style={{ maxHeight: 'min(494px, 57dvh)' }}>
         {candidates.map((entry) => (
           <li key={entry.uuid}>
             <button type="button" className="bo-catalog-item" onClick={() => add(entry)}>
@@ -166,7 +171,7 @@ function MemberPicker({ actor, taken, onClose }) {
           </li>
         ) : null}
       </ul>
-    </Modal>
+    </PickerModal>
   )
 }
 
@@ -188,12 +193,16 @@ function Members({ actor, editable }) {
   const missing = uuids.length - members.length
 
   const remove = async (member) => {
-    await actor.update({
-      'system.members': uuids.filter((entry) => entry !== member.uuid)
-    })
-    // Clear the back-reference too, or the member counts as still grouped and
-    // cannot be added anywhere else.
-    await member.update({ 'system.group': '' })
+    if (!member.isOwner) return ui.notifications.warn('You need edit access to the member.')
+    const oldGroup = member.system?.group ?? ''
+    const hasBackReference = [actor.id, actor.uuid].includes(oldGroup)
+    if (hasBackReference) await member.update({ 'system.group': '' })
+    try {
+      await actor.update({ 'system.members': (actor.system.members ?? []).filter((entry) => entry !== member.uuid) })
+    } catch (error) {
+      if (hasBackReference) await member.update({ 'system.group': oldGroup })
+      throw error
+    }
   }
 
   return (
@@ -378,7 +387,7 @@ function GroupFeatures({ actor, editable, locked }) {
 
   const remove = async (item) => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove advantage' },
       content: `<p>Remove <strong>${foundry.utils.escapeHTML(item.name)}</strong>?</p>`
     })
@@ -434,7 +443,7 @@ function GroupFeatures({ actor, editable, locked }) {
         </div>
       ) : (
         <p className="bo-empty" style={{ textAlign: 'left' }}>
-          Nothing recorded. Coterie merits and flaws can also be dragged in from a compendium.
+          Nothing recorded. Merits and flaws can also be dragged in from a compendium.
         </p>
       )}
 
@@ -583,6 +592,7 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
   // possible extras, so its state lives here.
   const [coteriePicking, setCoteriePicking] = useState(null)
   const groupType = actor.system.groupType || 'coterie'
+  const pack = groupType === 'pack'
   const ratings = RATINGS[groupType] ?? RATINGS.coterie
 
   const field = (label, path, rows = 5) => (
@@ -605,7 +615,7 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
   )
 
   return (
-    <div className={`bo-app bo-splat-group is-${groupType}`}>
+    <div className={`bo-app bo-splat-group is-${groupType}${pack ? ' bo-splat-werewolf' : ''}`}>
       <header className="bo-header">
         {actor.img ? <img src={actor.img} alt="" className="bo-portrait" /> : null}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -654,7 +664,7 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
 
       <nav className="bo-tabs">
         {[
-          { id: 'domain', label: 'Domain' },
+          { id: 'domain', label: pack ? 'Pack & Caern' : groupType === 'cell' ? 'Cell' : 'Domain' },
           { id: 'members', label: 'Members' },
           { id: 'notes', label: 'Notes' }
         ].map((entry) => (
@@ -671,21 +681,26 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
 
       {tab === 'domain' ? (
         <div>
+          {pack ? <PackTab actor={actor} editable={editable} locked={locked} /> : <>
           <SectionTitle
             info={
               groupType === 'coterie'
                 ? 'A coterie shares a domain. Chasse is how well it feeds them, Lien how deeply it is theirs, Portillon how well it is held. Dots are shared, not personal.'
-                : 'Shared ratings for the group, as defined by its own rules.'
+                : groupType === 'cell' ? 'Desperation adds dice on qualifying tests. Danger measures the quarry’s response.' : 'Shared ratings for the group, as defined by its own rules.'
             }
           >
             {groupType === 'coterie' ? 'Domain' : 'Shared ratings'}
           </SectionTitle>
 
-          <div style={{ display: 'grid', gap: '4px', marginBottom: '24px' }}>
+          {groupType === 'cell' ? (
+            <div style={{ marginBottom: '24px' }}><HunterCounters actor={actor} disabled={!editable} /></div>
+          ) : <div style={{ display: 'grid', gap: '4px', marginBottom: '24px' }}>
             {ratings.map((rating) => (
               <RatingRow key={rating.id} actor={actor} rating={rating} editable={editable} locked={locked} />
             ))}
-          </div>
+          </div>}
+
+          </>}
 
           {groupType === 'coterie' ? (
             <div style={{ marginBottom: '24px' }}>
@@ -746,6 +761,7 @@ export default function GroupApp({ actor, editable, locked, onToggleLock }) {
             Who they are
           </SectionTitle>
           <Members actor={actor} editable={editable} />
+          {pack ? <PackBonds actor={actor} editable={editable} /> : null}
 
           <div style={{ marginTop: '28px' }}>
             <SectionTitle info="Anything the group owns together rather than personally — a haven, a car, a safe full of documents.">

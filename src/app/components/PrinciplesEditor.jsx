@@ -1,3 +1,4 @@
+import { hunterTouchstones } from '../schema/touchstones.js'
 import { useState } from 'react'
 import { GhostButton } from './primitives.jsx'
 import { MODULE_ID } from '../../constants.js'
@@ -17,11 +18,7 @@ export function readPrinciples(actor) {
   return Array.isArray(stored) ? stored : []
 }
 
-async function writePrinciples(actor, principles) {
-  await actor.setFlag(MODULE_ID, 'principles', principles)
-}
-
-function PortraitSlot({ path, editable, onPick, label = 'Portrait' }) {
+export function PortraitSlot({ path, editable, onPick, label = 'Portrait' }) {
   const browse = async () => {
     if (!editable) return
     // Foundry's own picker, so images live as files rather than base64 blobs
@@ -50,24 +47,24 @@ function PortraitSlot({ path, editable, onPick, label = 'Portrait' }) {
   )
 }
 
-export default function PrinciplesEditor({ actor, editable }) {
-  const principles = readPrinciples(actor)
+export default function PrinciplesEditor({ actor, editable, hunter = false }) {
+  const principles = hunter ? hunterTouchstones(actor) : readPrinciples(actor)
+  const write = (entries) => actor.setFlag(MODULE_ID, hunter ? 'hunterTouchstones' : 'principles', entries)
   const [confirming, setConfirming] = useState(null)
 
   const update = (index, field, value) => {
-    writePrinciples(
-      actor,
+    write(
       principles.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry))
     )
   }
 
   const add = () => {
-    if (principles.length >= MAX_PRINCIPLES) return
-    writePrinciples(actor, [...principles, { conviction: '', touchstone: '', portrait: '' }])
+    if (!hunter && principles.length >= MAX_PRINCIPLES) return
+    write([...principles, { conviction: '', touchstone: '', portrait: '' }])
   }
 
   const remove = (index) => {
-    writePrinciples(actor, principles.filter((_, i) => i !== index))
+    write(principles.filter((_, i) => i !== index))
     setConfirming(null)
   }
 
@@ -75,28 +72,27 @@ export default function PrinciplesEditor({ actor, editable }) {
     <div style={{ marginTop: '18px' }}>
       <div className="bo-row" style={{ marginBottom: '10px' }}>
         <div className="bo-label" style={{ margin: 0 }}>
-          Principles
+          {hunter ? "Connections" : "Principles"}
         </div>
         {editable ? (
           <GhostButton
             tone="accent"
             onClick={add}
-            disabled={principles.length >= MAX_PRINCIPLES}
+            disabled={!hunter && principles.length >= MAX_PRINCIPLES}
             title={
-              principles.length >= MAX_PRINCIPLES
+              !hunter && principles.length >= MAX_PRINCIPLES
                 ? 'Three Principles is the maximum'
-                : 'Add a Conviction and Touchstone pair'
+                : hunter ? 'Add a Touchstone' : 'Add a Conviction and Touchstone pair'
             }
           >
-            + Add principle
+            {hunter ? "+ Add Touchstone" : "+ Add principle"}
           </GhostButton>
         ) : null}
       </div>
 
       {!principles.length ? (
         <p className="bo-empty" style={{ textAlign: 'left' }}>
-          No principles yet. A Kindred's moral lines only hold weight while a mortal Touchstone
-          anchors them — add a pair to begin.
+          {hunter ? 'With no Touchstones, the Hunter is in Despair and cannot recover Willpower.' : "No principles yet. A Kindred's moral lines only hold weight while a mortal Touchstone anchors them — add a pair to begin."}
         </p>
       ) : (
         <div style={{ display: 'grid', gap: '14px' }}>
@@ -104,7 +100,7 @@ export default function PrinciplesEditor({ actor, editable }) {
             <div key={index} className="bo-panel">
               <div className="bo-row" style={{ marginBottom: '10px' }}>
                 <div className="bo-principle-number">
-                  Principle {index + 1} of {principles.length}
+                  {hunter ? "Touchstone" : "Principle"} {index + 1} of {principles.length}
                 </div>
                 {editable ? (
                   confirming === index ? (
@@ -122,13 +118,15 @@ export default function PrinciplesEditor({ actor, editable }) {
                 ) : null}
               </div>
 
-              <div className="bo-principle-body">
+              <div className={hunter ? 'bo-principle-body is-hunter' : 'bo-principle-body'} style={hunter ? { gridTemplateColumns: "minmax(0, 1fr) auto" } : undefined}>
+                {!hunter ? <>
                 <label className="bo-field-label">
                   <span>Conviction</span>
                   <textarea
                     className="bo-field"
                     rows={4}
                     style={{ resize: 'vertical' }}
+                    key={entry.conviction}
                     defaultValue={entry.conviction}
                     disabled={!editable}
                     placeholder="A personal moral line the character won't cross…"
@@ -140,6 +138,7 @@ export default function PrinciplesEditor({ actor, editable }) {
                 <div className="bo-principle-bond" aria-hidden="true">
                   ∞
                 </div>
+                </> : null}
 
                 <label className="bo-field-label">
                   <span>Touchstone</span>
@@ -147,9 +146,10 @@ export default function PrinciplesEditor({ actor, editable }) {
                     className="bo-field"
                     rows={4}
                     style={{ resize: 'vertical' }}
+                    key={entry.touchstone}
                     defaultValue={entry.touchstone}
                     disabled={!editable}
-                    placeholder="The mortal who anchors this conviction — name, relationship, why they matter…"
+                    placeholder={hunter ? "Name, relationship, why they matter…" : "The mortal who anchors this conviction — name, relationship, why they matter…"}
                     onBlur={(event) => update(index, 'touchstone', event.target.value)}
                   />
                 </label>

@@ -1,4 +1,13 @@
-import { useMemo, useState } from 'react'
+import { garouTouchstones } from '../schema/garou-touchstones.js'
+import { birthForm } from '../schema/werewolf.js'
+import GarouAdvantagePicker from '../components/GarouAdvantagePicker.jsx'
+import { GarouBasics, GarouIdentity, GarouPowers, GarouSummary } from './GarouSteps.jsx'
+import { GAROU_ALLOWANCE, GAROU_STEPS, finishGarou, garouStepProblem } from './garou.js'
+import PowerSelection from '../components/PowerSelection.jsx'
+import { hunterTouchstones } from '../schema/touchstones.js'
+import { HunterBasics, HunterDrive, HunterEdges, HunterSummary } from './HunterSteps.jsx'
+import { HUNTER_ALLOWANCE, HUNTER_STEPS, finishHunter, hunterStepProblem } from './hunter.js'
+import { useMemo, useRef, useState } from 'react'
 import { GhostButton } from '../components/primitives.jsx'
 import DotTracker from '../components/DotTracker.jsx'
 import Select from '../components/Select.jsx'
@@ -63,7 +72,7 @@ function draftActor(actor, draft) {
   return {
     id: actor.id,
     uuid: actor.uuid,
-    type: 'vampire',
+    type: actor.type,
     items,
     system: { blood: { potency: generationOf(draft).potency }, disciplines },
     getFlag: () => null
@@ -93,67 +102,138 @@ function prune(draft) {
 /* ================================================================ wizard */
 
 export default function Chargen({ actor, onClose }) {
-  const [draft, setDraftState] = useState(() => ({ ...emptyDraft(actor), ...(readDraft(actor) ?? {}) }))
+  const hunter = actor.type === 'hunter'
+  const garou = actor.type === 'werewolf'
+  const steps = garou ? GAROU_STEPS : hunter ? HUNTER_STEPS : STEPS
+  const [draft, setDraftState] = useState(() => {
+    const base = emptyDraft(actor)
+    const saved = readDraft(actor)
+    if (garou) {
+      const touchstones = garouTouchstones(actor).slice(0, 3).map((row) => row.touchstone)
+      return {
+        ...base,
+        basics: { ...base.basics, concept: actor.system.headers?.concept, chronicle: actor.system.headers?.chronicle, portrait: actor.img },
+        birthForm: birthForm(actor),
+        touchstones: touchstones?.length ? touchstones : [''],
+        auspice: '', tribe: '', otherRenown: '', garouPicks: {},
+        ...saved
+      }
+    }
+    if (!hunter) return { ...base, ...saved }
+    const headers = actor.system.headers ?? {}
+    const touchstones = hunterTouchstones(actor)
+    const initialTouchstones = touchstones.length ? touchstones : [{ touchstone: '', portrait: '' }]
+    return {
+      ...base,
+      basics: { ...base.basics, concept: headers.concept, ambition: headers.ambition, desire: headers.desire },
+      creed: '',
+      drive: '',
+      touchstones: initialTouchstones.map((entry) => ({ ...entry, id: pickId() })),
+      edges: [],
+      perks: [],
+      edgePools: {},
+      ...saved
+    }
+  })
+  const operation = useRef(false)
+  const pendingSave = useRef(Promise.resolve())
   const [busy, setBusy] = useState(false)
 
-  const setDraft = (patch) => setDraftState((current) => prune({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))
+  const setDraft = (patch) => setDraftState((current) => {
+    const next = { ...current, ...(typeof patch === 'function' ? patch(current) : patch) }
+    return hunter || garou ? next : prune(next)
+  })
 
-  const step = STEPS[draft.step]
-  const problem = stepProblem(draft, step.id)
-  const last = draft.step === STEPS.length - 1
+  const step = steps[draft.step]
+  const last = draft.step === steps.length - 1
+  const problemFor = (id) => garou ? garouStepProblem(draft, id) : hunter ? hunterStepProblem(actor, draft, id) : stepProblem(draft, id)
+  const invalid = (hunter || garou) && last ? steps.find(({ id }) => problemFor(id)) : null
+  const problem = invalid ? invalid.label + ' — ' + problemFor(invalid.id) : problemFor(step.id)
 
-  const persist = (next) => saveDraft(actor, next).catch((error) => console.warn('Blood Oracle | Could not save the draft', error))
+  const persist = (next) => {
+    const save = pendingSave.current.then(() => saveDraft(actor, next))
+    pendingSave.current = save.catch((error) => {
+      console.error('Blood Oracle | Could not save the draft', error)
+      ui.notifications.error('Blood Oracle: could not save the draft.')
+    })
+    return save
+  }
+  const saveAndClose = async () => {
+    if (operation.current) return
+    operation.current = true
+    setBusy(true)
+    try {
+      await persist(draft)
+      onClose()
+    } catch {
+      setBusy(false)
+    } finally {
+      operation.current = false
+    }
+  }
 
   const go = (index) => {
-    if (index > draft.reached || index === draft.step) return
+    if (operation.current || index > draft.reached || index === draft.step) return
     const next = { ...draft, step: index }
     setDraftState(next)
-    persist(next)
+    void persist(next).catch(() => {})
   }
 
   const confirm = async () => {
-    if (problem || busy) return
+    if (problem || operation.current) return
     if (!last) {
       const index = draft.step + 1
       const next = { ...draft, step: index, reached: Math.max(draft.reached, index) }
       setDraftState(next)
-      persist(next)
+      void persist(next).catch(() => {})
       return
     }
-    const ok = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
-      window: { title: 'Create the character' },
-      content: '<p>Write everything to the sheet now? You can still change anything there afterwards.</p>'
-    })
-    if (!ok) return
+    operation.current = true
     setBusy(true)
     try {
-      await finishCharacter(actor, draft)
+      const ok = await foundry.applications.api.DialogV2.confirm({
+        classes: ['blood-oracle', 'bo-dialog', ...(hunter || garou ? ['bo-splat-' + actor.type] : [])],
+        window: { title: 'Create the character' },
+        content: '<p>Write everything to the sheet now? You can still change anything there afterwards.</p>'
+      })
+      if (!ok) return
+      if (garou) {
+        await persist(draft)
+        await finishGarou(actor, draft)
+      } else if (hunter) {
+        await persist(draft)
+        await finishHunter(actor, draft)
+      } else {
+        await pendingSave.current
+        await finishCharacter(actor, draft)
+      }
       ui.notifications.info(`${draft.basics.name || actor.name} is ready.`)
       onClose()
     } catch (error) {
       console.error('Blood Oracle | Character creation failed', error)
       ui.notifications.error('Blood Oracle: could not write the character. See the console.')
+    } finally {
+      operation.current = false
       setBusy(false)
     }
   }
 
   const back = () => {
-    if (!draft.step) return
+    if (!draft.step || operation.current) return
     const next = { ...draft, step: draft.step - 1 }
     setDraftState(next)
-    persist(next)
+    void persist(next).catch(() => {})
   }
 
   const shim = useMemo(() => draftActor(actor, draft), [actor, draft])
-  const props = { draft, setDraft, shim }
+  const props = { draft, setDraft, shim, hunter, garou }
 
   return (
     <div className="bo-chargen">
       <aside className="bo-cg-side">
         <div className="bo-label">Create a character</div>
         <ol className="bo-cg-steps">
-          {STEPS.map((entry, index) => {
+          {steps.map((entry, index) => {
             const skipped = entry.id === 'predator' && isThinBlood(draft.clan)
             // Steps before the furthest one reached have been confirmed.
             const done = index < draft.reached && index !== draft.step
@@ -167,11 +247,19 @@ export default function Chargen({ actor, onClose }) {
             )
           })}
         </ol>
-        <Summary draft={draft} />
+        {garou ? <GarouSummary draft={draft} /> : hunter ? <HunterSummary actor={actor} draft={draft} /> : <Summary draft={draft} />}
       </aside>
 
       <section className="bo-cg-main">
         <div className="bo-cg-body">
+          {step.id === 'garou-basics' ? <GarouBasics {...props} /> : null}
+          {step.id === 'garou-identity' ? <GarouIdentity {...props} /> : null}
+          {step.id === 'garou-powers' ? <GarouPowers {...props} /> : null}
+          {step.id === 'garou-review' ? <GarouSummary draft={draft} review /> : null}
+          {step.id === 'hunter-basics' ? <HunterBasics {...props} /> : null}
+          {step.id === 'hunter-drive' ? <HunterDrive {...props} /> : null}
+          {step.id === 'hunter-edges' ? <HunterEdges actor={actor} {...props} /> : null}
+          {step.id === 'hunter-review' ? <HunterSummary actor={actor} draft={draft} review /> : null}
           {step.id === 'clan' ? <StepClan {...props} /> : null}
           {step.id === 'attributes' ? <StepAttributes {...props} /> : null}
           {step.id === 'skills' ? <StepSkills {...props} /> : null}
@@ -185,7 +273,8 @@ export default function Chargen({ actor, onClose }) {
         </div>
         <footer className="bo-cg-foot">
           <span className="bo-cg-problem">{problem}</span>
-          <GhostButton disabled={!draft.step} onClick={back}>
+          {hunter || garou ? <GhostButton disabled={busy} onClick={saveAndClose}>Save &amp; close</GhostButton> : null}
+          <GhostButton disabled={!draft.step || busy} onClick={back}>
             Back
           </GhostButton>
           <button type="button" className="bo-solid" disabled={Boolean(problem) || busy} onClick={confirm}>
@@ -433,7 +522,7 @@ function StepSkills({ draft, setDraft }) {
 
 /* =========================================================== specialties */
 
-function StepSpecialties({ draft, setDraft }) {
+function StepSpecialties({ draft, setDraft, hunter, garou }) {
   const skills = getSkillGroups().flatMap((group) => group.entries)
   const label = (id) => skills.find((entry) => entry.id === id)?.label ?? id
   const required = REQUIRED_SPECIALTY_SKILLS.filter((skill) => (draft.skills[skill] ?? 0) > 0)
@@ -442,7 +531,7 @@ function StepSpecialties({ draft, setDraft }) {
   const rated = skills.filter((entry) => {
     const dots = draft.skills[entry.id] ?? 0
     const taken = REQUIRED_SPECIALTY_SKILLS.includes(entry.id) ? 1 : 0
-    return dots - taken > 0
+    return dots - taken > 0 || ((hunter || garou) && entry.id === 'craft' && dots > 0)
   })
 
   const setRequired = (skill, text) =>
@@ -494,7 +583,7 @@ function StepSpecialties({ draft, setDraft }) {
           />
         </div>
       </div>
-      <p className="bo-cg-note">Your predator type may add another specialty on its own step.</p>
+      {!hunter && !garou ? <p className="bo-cg-note">Your predator type may add another specialty on its own step.</p> : null}
     </>
   )
 }
@@ -679,43 +768,12 @@ export function PowerChooser({ disciplineKey, dots, chosen, onChange, limit = do
   const entries = all.filter((entry) => entry.level <= dots && !owned.includes(entry.name))
   const levelOf = (name) => all.find((entry) => entry.name === name)?.level ?? 0
   const chosenLevels = chosen.map(levelOf)
-  const toggle = (name) => {
-    if (chosen.includes(name)) onChange(chosen.filter((entry) => entry !== name))
-    else if (chosen.length < limit) onChange([...chosen, name])
-  }
-
   if (!isLoaded()) {
     return <p className="bo-cg-note">Powers come from the rules reference, which is not installed — add them on the sheet afterwards.</p>
   }
 
-  return (
-    <div className="bo-cg-powers">
-      {entries.map((entry) => {
-        const selected = chosen.includes(entry.name)
-        // Too many picks, or one that would leave a dot without a power of
-        // its level or lower (three level-3 powers for three dots).
-        const full = !selected && (chosen.length >= limit || !powersFitDots([...chosenLevels, entry.level], base))
-        return (
-          <button
-            key={entry.name}
-            type="button"
-            className={['bo-cg-power', selected ? 'is-selected' : '', full ? 'is-full' : '', entry.amalgam ? 'is-amalgam' : '']
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => toggle(entry.name)}
-            disabled={full}
-          >
-            <span className="bo-cg-power-head">
-              <span className="bo-cg-card-name">{entry.name}</span>
-              <span className="bo-cg-power-level">{DOTS(entry.level)}</span>
-            </span>
-            {entry.amalgam ? <span className="bo-cg-power-req">Also needs {entry.amalgam}</span> : null}
-            <span className="bo-cg-card-text">{entry.effect}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
+  return <PowerSelection entries={entries} chosen={chosen} onChange={onChange}
+    blocks={(entry) => chosen.length >= limit || !powersFitDots([...chosenLevels, entry.level], base)} />
 }
 
 function StepDisciplines(props) {
@@ -866,19 +924,9 @@ function ThinBloodGifts({ draft, setDraft }) {
       {alchemist && isLoaded() ? (
         <div className="bo-cg-block">
           <div className="bo-label">Thin-blood Alchemist · your first formula</div>
-          <div className="bo-cg-powers">
-            {formulas.map((entry) => (
-              <button
-                key={entry.name}
-                type="button"
-                className={draft.formula === entry.name ? 'bo-cg-power is-selected' : 'bo-cg-power'}
-                onClick={() => setDraft({ formula: entry.name })}
-              >
-                <span className="bo-cg-card-name">{entry.name}</span>
-                <span className="bo-cg-card-text">{entry.effect}</span>
-              </button>
-            ))}
-          </div>
+          <PowerSelection entries={formulas} chosen={draft.formula ? [draft.formula] : []}
+            blocks={() => Boolean(draft.formula)}
+            onChange={(chosen) => setDraft({ formula: chosen[0] ?? null })} />
         </div>
       ) : null}
     </>
@@ -938,9 +986,9 @@ function StepTouchstones({ draft, setDraft }) {
 
 /* ================================================================ merits */
 
-function StepMerits({ draft, setDraft, shim }) {
+function StepMerits({ draft, setDraft, shim, hunter, garou }) {
   const [picking, setPicking] = useState(null) // 'background' | 'merit' | 'flaw' | 'loresheet'
-  const allowance = advantageAllowance(draft)
+  const allowance = garou ? GAROU_ALLOWANCE : hunter ? HUNTER_ALLOWANCE : advantageAllowance(draft)
   const spent = advantageSpend(draft)
   const caitiff = isCaitiff(draft.clan)
   // The Caitiff may not buy positive Status at creation.
@@ -976,7 +1024,7 @@ function StepMerits({ draft, setDraft, shim }) {
             <DotTracker
               value={pick.dots}
               min={Math.max(range.min, 1)}
-              max={Math.min(Math.max(range.max, 1), 5)}
+              max={Math.min(Math.max(range.max, 1), garou ? 6 : 5)}
               onChange={(n) => setDots(pick.uid, n)}
             />
             <button type="button" className="bo-mini" title="Remove" onClick={() => remove(pick.uid)}>
@@ -988,7 +1036,7 @@ function StepMerits({ draft, setDraft, shim }) {
 
   return (
     <>
-      <Heading title="Merits & flaws" sub="What empowers the character, what complicates their unlife, and the loresheets that tie them to the wider story." />
+      <Heading title="Merits & flaws" sub={garou ? 'Spend 7 Advantage dots and take 2 Flaw dots.' : hunter ? "Spend seven Advantage dots, including any Loresheet levels, and choose two Flaw dots." : "What empowers the character, what complicates their unlife, and the loresheets that tie them to the wider story."} />
 
       <div className="bo-cg-counters">
         <div className={spent.advantages > allowance.advantages ? 'bo-cg-counter is-over' : 'bo-cg-counter'}>
@@ -1005,7 +1053,7 @@ function StepMerits({ draft, setDraft, shim }) {
         </div>
       </div>
       {caitiff ? <p className="bo-cg-note">As Caitiff you begin with Suspect (●) on top of these, and cannot buy Status now.</p> : null}
-      {!isLoaded() ? <p className="bo-cg-note">Merits come from the rules reference, which is not installed; clan coterie merits and loresheets still work.</p> : null}
+      {!hunter && !garou && !isLoaded() ? <p className="bo-cg-note">Merits come from the rules reference, which is not installed; clan coterie merits and loresheets still work.</p> : null}
 
       <div className="bo-cg-adv-actions">
         <GhostButton tone="accent" onClick={() => setPicking('background')}>
@@ -1017,9 +1065,7 @@ function StepMerits({ draft, setDraft, shim }) {
         <GhostButton tone="danger" onClick={() => setPicking('flaw')}>
           + Flaw
         </GhostButton>
-        <GhostButton tone="arcane" onClick={() => setPicking('loresheet')}>
-          + Loresheet
-        </GhostButton>
+        <GhostButton tone="arcane" onClick={() => setPicking('loresheet')}>+ Loresheet</GhostButton>
       </div>
 
       <div className="bo-cg-two">
@@ -1066,7 +1112,7 @@ function StepMerits({ draft, setDraft, shim }) {
         </div>
       </div>
 
-      {picking === 'loresheet' ? (
+      {picking && picking !== 'loresheet' && garou ? <GarouAdvantagePicker type={picking} taken={draft.advantages.map(({ entry }) => entry.name)} onPick={add} onClose={() => setPicking(null)} /> : picking === 'loresheet' ? (
         <LoresheetPicker actor={shim} onTake={takeLore} onClose={() => setPicking(null)} />
       ) : picking ? (
         <AdvantagePicker
@@ -1074,7 +1120,7 @@ function StepMerits({ draft, setDraft, shim }) {
           kind={picking === 'flaw' ? 'flaw' : 'merit'}
           sectionType={picking === 'background' ? 'background' : picking}
           backgroundsOnly={picking === 'background'}
-          extraEntries={picking === 'merit' ? clanCoterieEntries(shim) : null}
+          extraEntries={!hunter && picking === 'merit' ? clanCoterieEntries(shim) : null}
           exclude={picking === 'background' ? statusNames : null}
           onPick={add}
           onClose={() => setPicking(null)}

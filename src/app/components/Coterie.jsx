@@ -351,7 +351,7 @@ function FeatureRow({ actor, item, editable, locked, open, onToggle }) {
 
   const remove = async () => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove advantage' },
       content: `<p>Remove <strong>${foundry.utils.escapeHTML(item.name)}</strong> from the coterie?</p>`
     })

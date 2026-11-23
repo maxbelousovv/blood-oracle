@@ -1,10 +1,14 @@
+import { availablePerks, EDGE_COST, edgeOptions, edgePoolsComplete, hunterEdgePoolItems, PERK_COST, perkData } from '../schema/hunter-edges.js'
 import { getAttributeGroups, getSkillGroups, readTrait } from '../traits.js'
 import { entriesForDiscipline, bloodPotencyRange } from '../rules/catalog.js'
 import { disciplineLabel, buildPowerItemData } from '../schema/disciplines.js'
-import { addFeature, readAdvantageMeta, dotsRange, featureTypeFor } from '../schema/advantages.js'
-import { addSpecialty, readSpecialties } from '../schema/specialties.js'
-import { isLoresheetItem, takeLevel, LORESHEET_BY_ID } from '../schema/loresheets.js'
-import { addExperience } from '../schema/journal.js'
+import { addFeature, featureDataFromEntry, readAdvantageMeta, dotsRange, featureTypeFor } from '../schema/advantages.js'
+import { addSpecialty, readSpecialties, specialtyBonus, specialtyLimit } from '../schema/specialties.js'
+import { isLoresheetItem, takeLevel, LORESHEET_BY_ID, loresheetsFor, loresheetLevelData } from '../schema/loresheets.js'
+import { addExperience, experienceTotals } from '../schema/journal.js'
+import { GAROU_RENOWN, totalRenownOf } from '../schema/werewolf.js'
+import { garouPowerKind } from '../rules/garou-powers.js'
+import { buildGarouChoiceData, garouIdentities, giftPurchaseCost, powerChoiceProblem, RITE_XP } from '../schema/garou-advancement.js'
 import { groupOf } from '../schema/coterie.js'
 import { ADVANTAGE_COST, SPECIALTY_COST, disciplineMultiplier, stepCost } from './costs.js'
 import { powersFitDots } from '../chargen/rules.js'
@@ -15,9 +19,14 @@ import { powersFitDots } from '../chargen/rules.js'
  */
 export function emptyPlan() {
   return {
+    renown: {},
+    garouPicks: [],
     attributes: {},
     skills: {},
     specialties: [],
+    edges: [],
+    edgePools: {},
+    perks: [],
     disciplines: {},
     powers: {},
     rituals: [],
@@ -49,7 +58,7 @@ export const raisableFeatures = (actor) =>
 
 export const featureMax = (item) => {
   const range = dotsRange(readAdvantageMeta(item).dots)
-  return Math.min(Math.max(range.max, Number(item.system.points) || 0), 5)
+  return Math.min(Math.max(range.max, Number(item.system.points) || 0), item.parent?.type === 'werewolf' ? 6 : 5)
 }
 
 /** Specialties a skill holds now, plus those planned for it. */
@@ -57,6 +66,19 @@ export const specialtyCount = (actor, plan, skill) =>
   readSpecialties(actor, skill).length + plan.specialties.filter((entry) => entry.skill === skill).length
 
 export const skillTarget = (actor, plan, entry) => plan.skills[entry.id] ?? readTrait(actor, entry.path)
+
+const FREE_SPECIALTIES = ['academics', 'craft', 'performance', 'science']
+
+function grantsFirstSpecialty(actor, plan, skill) {
+  return ['hunter', 'werewolf'].includes(actor.type) && FREE_SPECIALTIES.includes(skill) &&
+    Number(actor.system.skills?.[skill]?.value ?? 0) === 0 && plan.skills[skill] > 0 &&
+    !readSpecialties(actor, skill).length
+}
+
+export function specialtyPrice(actor, plan, pick) {
+  const first = plan.specialties.find((entry) => entry.skill === pick.skill && entry.text.trim())
+  return first === pick && grantsFirstSpecialty(actor, plan, pick.skill) ? 0 : SPECIALTY_COST
+}
 
 const entryLevel = (key, name) => entriesForDiscipline(key).find((entry) => entry.name === name)?.level ?? 0
 
@@ -79,7 +101,26 @@ export function planLines(actor, plan) {
   traitLines(getSkillGroups(), plan.skills, 3)
 
   for (const entry of plan.specialties) {
-    if (entry.skill && entry.text.trim()) lines.push({ label: `Specialty: ${entry.text.trim()}`, cost: SPECIALTY_COST })
+    if (entry.skill && entry.text.trim()) lines.push({ label: `Specialty: ${entry.text.trim()}`, cost: specialtyPrice(actor, plan, entry) })
+  }
+
+  if (actor.type === 'hunter') {
+    const options = edgeOptions(actor)
+    for (const id of plan.edges) lines.push({ label: 'Edge: ' + (options.find(({ value }) => value === id)?.label ?? id), cost: EDGE_COST })
+    for (const perk of plan.perks) lines.push({ label: 'Perk: ' + perk.name, cost: PERK_COST })
+  }
+
+  if (actor.type === 'werewolf') {
+    for (const [id, label] of GAROU_RENOWN) {
+      const from = Number(actor.system.renown?.[id]?.value) || 0
+      const to = plan.renown[id] ?? from
+      if (to > from) lines.push({ label: label + ' ' + from + ' → ' + to, cost: stepCost(from, to, 5) })
+    }
+    const known = actor.items.filter((item) => garouPowerKind(item) === 'gift').length
+    let giftIndex = 0
+    for (const pick of plan.garouPicks) {
+      lines.push({ label: pick.name, cost: pick.slot === 'rite' ? RITE_XP : giftPurchaseCost(known, giftIndex++) })
+    }
   }
 
   for (const [key, to] of Object.entries(plan.disciplines)) {
@@ -117,7 +158,7 @@ export function planLines(actor, plan) {
   }
 
   const group = groupOf(actor)
-  if (group) {
+  if (group && actor.type !== 'werewolf') {
     for (const [key, to] of Object.entries(plan.coterie.domain)) {
       const from = Number(group.system?.[key]?.value) || 0
       if (to > from) lines.push({ label: `Coterie ${key.charAt(0).toUpperCase() + key.slice(1)} ${from} → ${to}`, cost: (to - from) * ADVANTAGE_COST })
@@ -139,6 +180,39 @@ export const planTotal = (lines) => lines.reduce((sum, line) => sum + line.cost,
 
 /** Why the plan cannot be bought yet — powers missing for new dots — or ''. */
 export function planProblem(actor, plan) {
+  if (actor.type === 'werewolf') {
+    const identities = garouIdentities(actor)
+    const renown = totalRenownOf(actor) + GAROU_RENOWN.reduce((sum, [id]) => {
+      const from = Number(actor.system.renown?.[id]?.value) || 0
+      return sum + Math.max(0, (plan.renown[id] ?? from) - from)
+    }, 0)
+    for (const [id, to] of Object.entries(plan.renown)) {
+      const from = Number(actor.system.renown?.[id]?.value) || 0
+      if (!GAROU_RENOWN.some(([key]) => key === id) || !Number.isInteger(to) || to < from || to > 5) return 'Invalid Renown rating.'
+    }
+    for (const [index, pick] of plan.garouPicks.entries()) {
+      const problem = powerChoiceProblem({ pick, identities, renown, items: actor.items, others: plan.garouPicks.slice(0, index) })
+      if (problem) return pick.name + ' · ' + problem
+    }
+    const ownedLore = actor.items.map((item) => item.getFlag?.('blood-oracle', 'loresheet')).filter(Boolean)
+    const catalog = loresheetsFor(actor)
+    if (plan.loresheets.some(({ id, level }, index) => !catalog.some((entry) => entry.id === id) ||
+      !Number.isInteger(level) || level < 1 || level > 5 || [...ownedLore, ...plan.loresheets.slice(0, index)].some((pick) => pick.id === id && pick.level === level))) {
+      return 'A Loresheet level is already owned or unavailable.'
+    }
+    if (planTotal(planLines(actor, plan)) > experienceTotals(actor).remaining) return 'The purchase exceeds available XP.'
+  }
+  if (actor.type === 'hunter') {
+    const options = edgeOptions(actor)
+    if (plan.edges.some((id) => !options.some(({ value }) => value === id))) return 'An Edge in this plan is already owned or unavailable.'
+    const missingPool = options.find(({ value }) => plan.edges.includes(value) && !edgePoolsComplete(value, plan.edgePools[value]))
+    if (missingPool) return 'Choose the dice pool for ' + missingPool.label + '.'
+    for (const [index, pick] of plan.perks.entries()) {
+      if (!actor.system.edges?.[pick.edge]?.visible && !plan.edges.includes(pick.edge)) return 'A Perk needs its Edge.'
+      if (!pick.name.trim()) return 'Every new Perk needs a name.'
+      if (!pick.custom && !availablePerks(actor, pick.edge, plan.perks.slice(0, index)).some(([name]) => name === pick.name)) return 'A Perk in this plan is already owned or unavailable.'
+    }
+  }
   for (const [key, to] of Object.entries(plan.disciplines)) {
     if (key === 'alchemy') continue
     const need = Math.max(0, to - disciplineValue(actor, key))
@@ -150,7 +224,19 @@ export function planProblem(actor, plan) {
       return `Each new ${disciplineLabel(key)} dot takes a power of its own level or lower.`
     }
   }
-  if (plan.specialties.some((entry) => !entry.skill || !entry.text.trim())) return 'Every new specialty needs a skill and a name.'
+  const skills = getSkillGroups().flatMap((group) => group.entries)
+  const namesBySkill = new Map()
+  for (const pick of plan.specialties) {
+    const skill = skills.find(({ id }) => id === pick.skill)
+    const name = pick.text.trim().toLowerCase()
+    if (!skill || !name) return 'Every new specialty needs a skill and a name.'
+    const names = namesBySkill.get(skill.id) ?? readSpecialties(actor, skill.id).map(({ text }) => text.toLowerCase())
+    if (names.includes(name)) return 'That specialty is already on ' + skill.label + ' or in this purchase.'
+    if (names.length >= specialtyLimit(actor, skill.id, skillTarget(actor, plan, skill))) return skill.label + ' cannot hold another specialty at this rating.'
+    namesBySkill.set(skill.id, [...names, name])
+  }
+  const missingFree = skills.find(({ id }) => grantsFirstSpecialty(actor, plan, id) && !namesBySkill.has(id))
+  if (missingFree) return 'Choose the free ' + missingFree.label + ' specialty before spending.'
   return ''
 }
 
@@ -161,10 +247,13 @@ const powerItem = (key, name) => {
 
 /** Buy it all, then record one entry in the experience journal. */
 export async function applyPlan(actor, plan) {
+  const problem = planProblem(actor, plan)
+  if (problem) throw new Error(problem)
   const lines = planLines(actor, plan)
   const total = planTotal(lines)
 
   const update = {}
+  const newEdges = actor.type === 'hunter' ? edgeOptions(actor).filter(({ value }) => plan.edges.includes(value)) : []
   for (const group of getAttributeGroups()) {
     for (const entry of group.entries) if (plan.attributes[entry.id] > readTrait(actor, entry.path)) update[entry.path] = plan.attributes[entry.id]
   }
@@ -176,11 +265,11 @@ export async function applyPlan(actor, plan) {
   }
   const potency = Number(actor.system.blood?.potency) || 0
   if (plan.potency > potency) update['system.blood.potency'] = plan.potency
-  if (Object.keys(update).length) await actor.update(update)
-
   const raises = Object.entries(plan.features)
     .filter(([id, to]) => to > (Number(actor.items.get(id)?.system.points) || 0))
     .map(([id, to]) => ({ _id: id, 'system.points': to }))
+  if (actor.type === 'werewolf') return applyGarouPurchase(actor, plan, { update, raises, lines, total })
+  if (Object.keys(update).length) await actor.update(update)
   if (raises.length) await actor.updateEmbeddedDocuments('Item', raises)
 
   const items = []
@@ -223,7 +312,66 @@ export async function applyPlan(actor, plan) {
 
   if (total > 0) {
     const summary = lines.filter((line) => line.cost > 0).map((line) => line.label).join(', ')
-    await addExperience(actor, { name: summary || 'Experience spent', amount: total, spend: true })
+    const purchase = { name: summary || 'Experience spent', amount: total, spend: true }
+    if (actor.type !== 'hunter') {
+      await addExperience(actor, purchase)
+      return
+    }
+
+    const hunterItems = plan.perks.map(({ edge, name }) => perkData(edge, name))
+    for (const { value, label } of newEdges) {
+      hunterItems.push(...hunterEdgePoolItems(value, label, plan.edgePools[value]))
+    }
+    const created = hunterItems.length ? await actor.createEmbeddedDocuments('Item', hunterItems) : []
+    try {
+      if (created.length !== hunterItems.length) throw new Error('Could not create all Hunter purchase items')
+      const changes = Object.fromEntries(newEdges.map(({ value }) => ['system.edges.' + value + '.visible', true]))
+      await addExperience(actor, purchase, changes)
+    } catch (error) {
+      if (created.length) await actor.deleteEmbeddedDocuments('Item', created.map(({ id }) => id))
+      throw error
+    }
+  }
+}
+
+const activeGarouPurchases = new Set()
+
+async function applyGarouPurchase(actor, plan, { update, raises, lines, total }) {
+  const key = actor.uuid ?? actor.id
+  if (activeGarouPurchases.has(key)) throw new Error('A purchase is already in progress.')
+  if (!total) return
+  activeGarouPurchases.add(key)
+  const created = []
+  const originalRatings = raises.map(({ _id }) => ({ _id, 'system.points': actor.items.get(_id).system.points }))
+  let attemptedRaises = false
+  try {
+    for (const [id, value] of Object.entries(plan.renown)) update['system.renown.' + id + '.value'] = value
+    for (const { skill, text } of plan.specialties) {
+      const path = 'system.skills.' + skill + '.bonuses'
+      update[path] ??= [...(actor.system.skills?.[skill]?.bonuses ?? [])]
+      update[path].push(specialtyBonus(skill, text.trim()))
+    }
+    const documents = [
+      ...plan.garouPicks.map((pick) => buildGarouChoiceData(actor, pick)),
+      ...plan.newFeatures.map(({ entry, dots }) => featureDataFromEntry({ entry, points: dots })),
+      ...plan.loresheets.map(({ id, level }) => loresheetLevelData(LORESHEET_BY_ID[id], level))
+    ]
+    if (documents.length) {
+      created.push(...await actor.createEmbeddedDocuments('Item', documents))
+      if (created.length !== documents.length) throw new Error('Could not create all Werewolf purchase items.')
+    }
+    if (raises.length) {
+      attemptedRaises = true
+      await actor.updateEmbeddedDocuments('Item', raises)
+    }
+    if (total > experienceTotals(actor).remaining) throw new Error('The XP balance changed while spending.')
+    await addExperience(actor, { name: lines.map(({ label }) => label).join(', '), amount: total, spend: true }, update)
+  } catch (error) {
+    if (attemptedRaises) await actor.updateEmbeddedDocuments('Item', originalRatings)
+    if (created.length) await actor.deleteEmbeddedDocuments('Item', created.map(({ id }) => id))
+    throw error
+  } finally {
+    activeGarouPurchases.delete(key)
   }
 }
 

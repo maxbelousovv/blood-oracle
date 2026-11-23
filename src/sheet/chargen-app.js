@@ -22,7 +22,8 @@ export class BloodOracleChargen extends ApplicationV2 {
   #mount = null
 
   constructor(actor, options = {}) {
-    super({ ...options, id: `blood-oracle-chargen-${actor.id}` })
+    const classes = [...BloodOracleChargen.DEFAULT_OPTIONS.classes, ...(options.classes ?? [])]
+    super({ ...options, id: `blood-oracle-chargen-${actor.id}`, classes: ['hunter', 'werewolf'].includes(actor.type) ? [...classes, 'bo-splat-' + actor.type] : classes })
     this.actor = actor
   }
 
@@ -64,6 +65,10 @@ export class BloodOracleChargen extends ApplicationV2 {
    */
   static async start(actor) {
     if (!isBlankCharacter(actor) && !readDraft(actor)) {
+      if (['hunter', 'werewolf'].includes(actor.type)) {
+        ui.notifications.warn('Start the creator on a new, blank character.')
+        return null
+      }
       const ok = await foundry.applications.api.DialogV2.confirm({
         classes: ['blood-oracle', 'bo-dialog'],
         window: { title: 'Character creator' },
@@ -82,7 +87,7 @@ export class BloodOracleChargen extends ApplicationV2 {
    */
   static async offer(actor) {
     const choice = await foundry.applications.api.DialogV2.wait({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', ...(['hunter', 'werewolf'].includes(actor.type) ? ['bo-splat-' + actor.type] : [])],
       window: { title: 'A new character' },
       content: '<p>How would you like to create this character?</p>',
       buttons: [

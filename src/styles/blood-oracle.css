@@ -28,9 +28,8 @@
      outline they use, a step brighter than the general field border. */
   --bo-dot-empty: #5f2a2e;
 
-  /* Fixed across every splat: dots and Humanity are gold, and damage is red,
-     because those read as the same thing on any character sheet. Splats
-     override the surrounding palette, never these. */
+  /* Default rating and damage colors. Sheets can override the palette while
+     keeping the same marks for filled dots, Humanity and damage. */
   --bo-dot: #c8a060;
   --bo-humanity: #c8a060;
   --bo-damage: #ff3030;
@@ -504,6 +503,14 @@
   font-size: 16px;
 }
 
+.blood-oracle .bo-biography .bo-field-label > :is(input.bo-field[type='text'], .bo-select) {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding-block: 0;
+  line-height: 1.3;
+}
+
 /* ==========================================================================
    Modals — scoped to the sheet rather than the viewport, so the overlay never
    covers other Foundry windows.
@@ -738,7 +745,7 @@
 }
 
 .blood-oracle .bo-catalog-item:hover:not(:disabled) {
-  background: rgba(90, 24, 40, 0.35);
+  background: var(--bo-menu-active, rgba(90, 24, 40, 0.35));
   color: var(--bo-accent);
 }
 
@@ -1362,6 +1369,7 @@
 
 /* Ghoul — dried blood: rust and brass, the vitae borrowed and going stale. */
 .blood-oracle .bo-app.bo-splat-ghoul {
+  --bo-scroll-thumb: #797063;
   --bo-text-dim: #c8b4a2;
   --bo-text-muted: #8e6e56;
   --bo-text-faint: #664a3c;
@@ -1400,91 +1408,485 @@
   background: radial-gradient(ellipse at top, #241608 0%, #150d06 50%, #0a0603 100%);
 }
 
-/* Mortal — deep blue, kept dark: nothing in the blood, so nothing bright. */
-.blood-oracle .bo-app.bo-splat-mortal {
-  --bo-text-dim: #a4b0c2;
-  --bo-text-muted: #56647a;
-  --bo-text-faint: #3e4a5e;
-  /* Cold structure, warm accent — the pairing that gives the vampire sheet its
-     depth, with the temperatures swapped round. */
-  --bo-accent: #d09a4e;
-  --bo-accent-red: #4a74a8;
-  --bo-red-glow: #6a97cc;
-  --bo-hunger: #4a72a8;
-  --bo-wp: #8fa4cc;
-  --bo-dot-empty: #2c3c52;
-
-  --bo-panel-bg: rgba(6, 11, 19, 0.5);
-  --bo-panel-border: #121f33;
-  --bo-field-bg: rgba(6, 11, 19, 0.6);
-  --bo-field-border: #152539;
-
-  --bo-rule: #20425f;
-  --bo-edge: #35597f;
-  --bo-glow-rgb: 74, 116, 168;
-
-  --bo-box-bg: linear-gradient(135deg, #0a121e, #04080d);
-  --bo-box-border: #16253a;
-  --bo-box-border-lit: #2a4364;
-  --bo-box-fill: linear-gradient(135deg, #20425f, #0f2036);
-  --bo-card-bg: #0d1520;
-  --bo-damage-stroke: #6e93bd;
-  --bo-damage-stroke-soft: #8fb0d4;
-
-  --bo-solid-bg: linear-gradient(180deg, #23486a 0%, #16293f 60%, #080e18 100%);
-  --bo-solid-border: #35597f;
-  --bo-solid-text: #e6eef8;
-  --bo-header-button-bg: linear-gradient(180deg, rgba(14, 24, 40, 0.9), rgba(6, 11, 19, 0.9));
-  --bo-danger-text: #8fb0d4;
-  --bo-danger-text-hot: #b8d0ea;
-  --bo-modal-bg: radial-gradient(ellipse at top, #0c1624 0%, #05090f 100%);
-
-  background: radial-gradient(ellipse at top, #0a111b 0%, #060a11 50%, #030508 100%);
+/* Hunter — neutral graphite, white ratings and orange for actions and danger. */
+.blood-oracle.bo-splat-hunter,
+.blood-oracle .bo-splat-hunter,
+.blood-oracle .bo-app.bo-splat-group.is-cell {
+  --bo-text: #f3f1ed;
+  --bo-text-dim: #c9c8c4;
+  --bo-text-muted: #b7b6b2;
+  --bo-text-faint: #8e9094;
+  --bo-accent: #f09254;
+  --bo-accent-red: #f09254;
+  --bo-red-glow: #f09254;
+  --bo-wp: #f3f1ed;
+  --bo-wp-dim: #b7b6b2;
+  --bo-dot: #f3f1ed;
+  --bo-dot-empty: #626468;
+  --bo-panel-bg: #191a1c;
+  --bo-panel-border: #383a3e;
+  --bo-field-bg: #141517;
+  --bo-field-border: #45474c;
+  --bo-rule: #383a3e;
+  --bo-edge: #b84c0e;
+  --bo-glow-rgb: 184, 76, 14;
+  --bo-box-bg: #151618;
+  --bo-box-border: #626468;
+  --bo-box-border-lit: #f09254;
+  --bo-box-fill: #5e2c14;
+  --bo-card-bg: #191a1c;
+  --bo-damage: #f09254;
+  --bo-damage-soft: #f3f1ed;
+  --bo-damage-stroke: #f09254;
+  --bo-damage-stroke-soft: #f3f1ed;
+  --bo-solid-bg: linear-gradient(#a7420c, #72300e);
+  --bo-solid-border: #b84c0e;
+  --bo-solid-text: #fff6ed;
+  --bo-header-button-bg: #191a1c;
+  --bo-danger-text: #f09254;
+  --bo-danger-text-hot: #ffb384;
+  --bo-modal-bg: #191a1c;
+  --bo-hunter-background: radial-gradient(ellipse at top, #1c1d1f, #101112 65%, #090a0b);
+  --bo-wizard-sidebar: #141517;
+  --bo-menu-active: #39291f;
+  --bo-picker-bg: #131416;
+  --bo-scroll-thumb: #646267;
+  background: var(--bo-hunter-background);
 }
 
-/* Story character — violet. Grey read as a disabled sheet rather than a
-   deliberate one, so this takes the colour of everything that is not one of
-   the named splats. */
+.application.blood-oracle.bo-splat-hunter:is(.bo-levelup-window, .bo-chargen-window) .window-content {
+  background: var(--bo-hunter-background);
+}
+
+.application.blood-oracle:has(.bo-app.bo-splat-werewolf),
+.blood-oracle.bo-splat-werewolf,
+.blood-oracle .bo-splat-werewolf {
+  --bo-text: #eee9e7;
+  --bo-text-dim: #c8bfc0;
+  --bo-text-muted: #ab9da0;
+  --bo-text-faint: #86777a;
+  --bo-accent: #ed514e;
+  --bo-accent-red: #ed514e;
+  --bo-red-glow: #ff6963;
+  --bo-hunger: #ed514e;
+  --bo-wp: #cfc3c1;
+  --bo-wp-dim: #9a8382;
+  --bo-dot: #e1d6d3;
+  --bo-dot-empty: #686163;
+  --bo-panel-bg: #171719;
+  --bo-panel-border: #383034;
+  --bo-field-bg: #101012;
+  --bo-field-border: #4a383a;
+  --bo-rule: #532c30;
+  --bo-edge: #bb393d;
+  --bo-glow-rgb: 167, 46, 50;
+  --bo-box-bg: #111113;
+  --bo-box-border: #655659;
+  --bo-box-border-lit: #a74b4f;
+  --bo-box-fill: #442023;
+  --bo-card-bg: #171719;
+  --bo-damage: #ff6561;
+  --bo-damage-soft: #e4adaa;
+  --bo-damage-stroke: var(--bo-damage);
+  --bo-damage-stroke-soft: var(--bo-damage-soft);
+  --bo-solid-bg: linear-gradient(#852a2d, #5b1c20);
+  --bo-solid-border: #a23a3e;
+  --bo-solid-text: #fff0ee;
+  --bo-header-button-bg: #171719;
+  --bo-danger-text: #f38d89;
+  --bo-danger-text-hot: #ffb2ac;
+  --bo-modal-bg: #171719;
+  --bo-picker-bg: #121214;
+  --bo-menu-active: #351d21;
+  --bo-scroll-thumb: #7e5054;
+}
+
+.application.blood-oracle:has(.bo-app.bo-splat-werewolf) .window-content,
+.application.blood-oracle.bo-splat-werewolf:is(.bo-chargen-window, .bo-levelup-window) :is(.window-content, .window-header),
+.blood-oracle .bo-app.bo-splat-werewolf {
+  background: radial-gradient(ellipse at top, #18181b, #101012 62%, #09090a);
+}
+
+.blood-oracle .bo-splat-werewolf :where(*),
+.application.blood-oracle:has(.bo-app.bo-splat-werewolf) :is(.window-content, .blood-oracle-root) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-scroll-thumb) transparent;
+}
+
+.blood-oracle .bo-garou-section {
+  margin-block: 24px;
+}
+
+.blood-oracle .bo-garou-form-status,
+.blood-oracle .bo-garou-actions,
+.blood-oracle .bo-garou-rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+}
+
+.blood-oracle .bo-touchstone-list {
+  display: grid;
+  gap: 14px;
+}
+
+.blood-oracle .bo-touchstone-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-touchstone-fields textarea.bo-field {
+  min-height: 92px;
+  height: 92px;
+  resize: vertical;
+}
+
+.blood-oracle .bo-garou-manual-picker input.bo-field[type='number'] {
+  width: 5rem;
+  min-height: 39px;
+}
+
+.chat-message .bo-garou-damage {
+  margin-top: 5px;
+}
+
+.chat-message .bo-garou-damage button {
+  margin-top: 5px;
+}
+
+.blood-oracle .bo-garou-balance-actions {
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-rage-controls > .bo-ghost:last-child {
+  min-width: 75px;
+}
+
+.blood-oracle .bo-garou-form-status {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.blood-oracle .bo-garou-rating > span {
+  flex: 1 0 85px;
+}
+
+.blood-oracle .bo-garou-balance {
+  display: flex;
+  gap: 4px;
+}
+
+.blood-oracle .bo-garou-balance.harano {
+  flex-direction: row-reverse;
+}
+
+.blood-oracle .bo-garou-balance button {
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  padding: 0;
+  border: 1px solid var(--bo-box-border);
+  border-radius: 2px;
+  background: var(--bo-box-bg);
+}
+
+.blood-oracle .bo-garou-balance button[aria-pressed="true"] {
+  border-color: var(--bo-accent);
+  background: var(--bo-box-fill);
+}
+
+.blood-oracle .bo-garou-forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+  gap: 12px;
+}
+
+.blood-oracle .bo-garou-forms .bo-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.blood-oracle .bo-garou-forms .bo-panel.is-active {
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-garou-forms .bo-prose {
+  flex: 1;
+}
+
+.application.blood-oracle.bo-splat-hunter:is(.bo-levelup-window, .bo-chargen-window) .window-header {
+  background: var(--bo-wizard-sidebar);
+  color: var(--bo-text);
+  border-bottom: 1px solid var(--bo-rule);
+}
+
+/* Mortal — dusty blue structure and ratings, with amber for actions. */
+.application.blood-oracle:has(.bo-app:is(.bo-splat-mortal, [data-scroll-theme="mortal"])),
+.blood-oracle .bo-app.bo-splat-mortal {
+  --bo-sheet-bg: radial-gradient(ellipse at top, #1b2128, #151c21 55%, #101519);
+  --bo-scroll-thumb: #6f7d8a;
+  --bo-text: #e8ebed;
+  --bo-text-dim: #b9c2c9;
+  --bo-text-muted: #9aa7b1;
+  --bo-text-faint: #818d97;
+  --bo-accent: #d5a05b;
+  --bo-accent-red: #899aac;
+  --bo-red-glow: #a8b7c4;
+  --bo-hunger: #b77c6f;
+  --bo-wp: #a8b7c4;
+  --bo-wp-dim: #718391;
+  --bo-dot: var(--bo-accent-red);
+  --bo-humanity: var(--bo-dot);
+  --bo-dot-empty: #5c6a75;
+
+  --bo-panel-bg: #1b232a;
+  --bo-panel-border: #343e47;
+  --bo-field-bg: #151c22;
+  --bo-field-border: #46525d;
+  --bo-rule: #3a4853;
+  --bo-edge: #a87843;
+  --bo-glow-rgb: 137, 154, 172;
+
+  --bo-box-bg: #161d23;
+  --bo-box-border: #4b5965;
+  --bo-box-border-lit: #8b7364;
+  --bo-box-fill: #362927;
+  --bo-card-bg: #1b232a;
+  --bo-damage: #e0a08a;
+  --bo-damage-soft: #b4c2ce;
+  --bo-damage-stroke: var(--bo-damage);
+  --bo-damage-stroke-soft: var(--bo-damage-soft);
+
+  --bo-solid-bg: linear-gradient(#654827, #47321f);
+  --bo-solid-border: #a87843;
+  --bo-solid-text: #f5e7d3;
+  --bo-header-button-bg: #1c2329;
+  --bo-danger-text: #daa091;
+  --bo-danger-text-hot: #f1bdb0;
+  --bo-modal-bg: #1b232a;
+  --bo-picker-bg: #151c22;
+  --bo-menu-active: #302c27;
+}
+
+/* Story character — graphite and parchment, with teal for actions. */
+.application.blood-oracle:has(.bo-app:is(.bo-splat-spc, [data-scroll-theme="spc"])),
 .blood-oracle .bo-app.bo-splat-spc {
-  --bo-text: #ece4f2;
-  --bo-text-dim: #c0b2cc;
-  --bo-text-muted: #7e6c94;
-  --bo-text-faint: #5f4f74;
-  /* Violet and champagne — the regalia pairing, and far enough from the
-     ghoul's brass that the two are not confused. */
-  --bo-accent: #d2b483;
-  --bo-accent-red: #8a56b8;
-  --bo-red-glow: #b078e0;
-  --bo-hunger: #9a5ec8;
-  --bo-wp: #c0a4e4;
-  --bo-dot-empty: #4a3660;
+  --bo-sheet-bg: radial-gradient(ellipse at top, #17181b, #131517 55%, #0e1011);
+  --bo-scroll-thumb: #857e73;
+  --bo-text: #ece9e2;
+  --bo-text-dim: #c4c0b7;
+  --bo-text-muted: #a19f99;
+  --bo-text-faint: #838581;
+  --bo-parchment: #b8ab97;
+  --bo-accent: #6eaea5;
+  --bo-accent-red: var(--bo-parchment);
+  --bo-red-glow: #c6b8a4;
+  --bo-hunger: #b47e69;
+  --bo-wp: #c4b8a5;
+  --bo-wp-dim: #8c8275;
+  --bo-dot: var(--bo-parchment);
+  --bo-humanity: var(--bo-dot);
+  --bo-dot-empty: #61615e;
 
-  --bo-panel-bg: rgba(15, 9, 22, 0.5);
-  --bo-panel-border: #261a3a;
-  --bo-field-bg: rgba(15, 9, 22, 0.6);
-  --bo-field-border: #2b1d42;
+  --bo-panel-bg: #1c1e20;
+  --bo-panel-border: #363735;
+  --bo-field-bg: #151719;
+  --bo-field-border: #494a47;
+  --bo-rule: #41413c;
+  --bo-edge: #6eaea5;
+  --bo-glow-rgb: 184, 171, 151;
 
-  --bo-rule: #4a2c70;
-  --bo-edge: #6d42a0;
-  --bo-glow-rgb: 125, 78, 168;
+  --bo-box-bg: #17191a;
+  --bo-box-border: #555650;
+  --bo-box-border-lit: #867a69;
+  --bo-box-fill: #38302a;
+  --bo-card-bg: #1c1e20;
+  --bo-damage: #d6a484;
+  --bo-damage-soft: #c4b8a5;
+  --bo-damage-stroke: var(--bo-damage);
+  --bo-damage-stroke-soft: var(--bo-damage-soft);
 
-  --bo-box-bg: linear-gradient(135deg, #130b1c, #08040d);
-  --bo-box-border: #2e1f46;
-  --bo-box-border-lit: #543a7c;
-  --bo-box-fill: linear-gradient(135deg, #4a2a72, #281444);
-  --bo-card-bg: #170f22;
-  --bo-damage-stroke: #b585e0;
-  --bo-damage-stroke-soft: #ccaaee;
+  --bo-solid-bg: linear-gradient(#345952, #263f3b);
+  --bo-solid-border: #5b938a;
+  --bo-solid-text: #e4eee9;
+  --bo-header-button-bg: #1a1c1d;
+  --bo-danger-text: #d2a79a;
+  --bo-danger-text-hot: #ebc4b8;
+  --bo-modal-bg: #1c1e20;
+  --bo-picker-bg: #151719;
+  --bo-menu-active: #233431;
+}
 
-  --bo-solid-bg: linear-gradient(180deg, #4e2a78 0%, #2e1848 60%, #140a20 100%);
-  --bo-solid-border: #6d42a0;
-  --bo-solid-text: #efe4f8;
-  --bo-header-button-bg: linear-gradient(180deg, rgba(34, 20, 50, 0.9), rgba(16, 10, 24, 0.9));
-  --bo-danger-text: #c496e4;
-  --bo-danger-text-hot: #e0c0f4;
-  --bo-modal-bg: radial-gradient(ellipse at top, #1a1028 0%, #0a0610 100%);
+.application.blood-oracle:has(.bo-app:is(.bo-splat-spc, .bo-splat-mortal, [data-scroll-theme="spc"], [data-scroll-theme="mortal"])) .window-content,
+.blood-oracle .bo-app:is(.bo-splat-spc, .bo-splat-mortal) {
+  background: var(--bo-sheet-bg);
+}
 
-  background: radial-gradient(ellipse at top, #150e22 0%, #0c0715 50%, #050309 100%);
+.blood-oracle .bo-splat-spc :is(.bo-label, .bo-tracker-label) {
+  color: var(--bo-parchment);
+}
+
+.blood-oracle .bo-splat-spc .bo-header-button:hover:not(.is-danger) {
+  color: color-mix(in srgb, var(--bo-accent) 75%, white);
+}
+
+.blood-oracle .bo-splat-spc :is(.bo-tab, .bo-header-button, .bo-select):focus-visible {
+  box-shadow: none;
+}
+
+.blood-oracle .bo-spc-portrait {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  background: var(--bo-field-bg);
+  color: var(--bo-text-muted);
+  cursor: pointer;
+}
+
+.blood-oracle .bo-spc-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blood-oracle .bo-spc-portrait:hover {
+  border-color: var(--bo-accent);
+}
+
+.blood-oracle .bo-select.bo-spc-type {
+  width: 132px;
+  height: 34px;
+  min-height: 34px;
+  padding-block: 0;
+}
+
+.blood-oracle .bo-spc-pools {
+  margin-bottom: 26px;
+}
+
+.blood-oracle .bo-spc-pool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+
+.blood-oracle .bo-spc-standard {
+  flex: 3 1 min(100%, 378px);
+}
+
+.blood-oracle .bo-spc-difficulty {
+  flex: 2 1 min(100%, 252px);
+}
+
+.blood-oracle .bo-spc-pool-ratings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 126px), 1fr));
+  gap: 6px;
+}
+
+.blood-oracle .bo-spc-pool-ratings .bo-spc-rating {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 4px 6px;
+  justify-content: start;
+  padding: 6px 8px;
+  border: 1px solid var(--bo-panel-border);
+  background: var(--bo-panel-bg);
+}
+
+.blood-oracle .bo-spc-pool-ratings .bo-stat-name {
+  grid-column: 1 / -1;
+}
+
+.blood-oracle .bo-spc-pool-ratings .bo-ghost {
+  padding-inline: 6px;
+}
+
+.blood-oracle .bo-spc-pool-ratings .bo-spc-rating :is(.bo-field, .bo-spc-rating-value) {
+  width: 36px;
+}
+
+.blood-oracle .bo-spc-exceptional {
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-spc-exceptional .bo-spc-pool-ratings {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+}
+
+.blood-oracle .bo-spc-stats .bo-spc-rating {
+  min-height: 41px;
+  box-sizing: border-box;
+}
+
+.blood-oracle .bo-spc-rating .bo-stat-name {
+  display: block;
+  text-overflow: ellipsis;
+}
+
+.blood-oracle .bo-spc-rating :is(.bo-field, .bo-spc-rating-value) {
+  width: 52px;
+  flex: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.blood-oracle .bo-spc-rating .bo-field {
+  padding: 2px 4px;
+  height: 30px;
+  min-height: 30px;
+  box-sizing: border-box;
+}
+
+.blood-oracle .bo-spc-rating .bo-ghost {
+  margin: 0;
+}
+
+.blood-oracle .bo-edge-pool-fields {
+  display: grid;
+  gap: 10px;
+  margin-block: 10px;
+}
+
+.blood-oracle .bo-spc-empty {
+  margin: 8px 0;
+  color: var(--bo-text-muted);
+  font-style: italic;
+}
+
+.blood-oracle .bo-spc-abilities {
+  margin-top: 24px;
+  margin-bottom: 22px;
+}
+
+.blood-oracle .bo-spc-ability .bo-stat-name {
+  display: block;
+  white-space: normal;
+}
+
+.blood-oracle .bo-spc-ability summary {
+  cursor: pointer;
+}
+
+.blood-oracle .bo-spc-roll {
+  color: var(--bo-accent);
+}
+
+@container (max-width: 650px) {
+  .blood-oracle .bo-splat-spc .bo-header {
+    flex-wrap: wrap;
+  }
+
+  .blood-oracle .bo-splat-spc .bo-header-actions {
+    flex-wrap: wrap;
+    flex-basis: 100%;
+  }
 }
 
 /* ==========================================================================
@@ -1502,7 +1904,7 @@
 }
 
 .blood-oracle ::-webkit-scrollbar-thumb {
-  background: var(--bo-rule);
+  background: var(--bo-scroll-thumb, var(--bo-rule));
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -1522,76 +1924,6 @@
    Groups — the palette follows what kind of group it is, so a coterie reads
    as Kindred and a cell does not.
    ========================================================================== */
-
-.blood-oracle .bo-app.bo-splat-group.is-pack {
-  --bo-text-dim: #b4c0a8;
-  --bo-text-muted: #6e7a5e;
-  --bo-text-faint: #525c46;
-  --bo-accent: #c2a44e;
-  --bo-accent-red: #4e7038;
-  --bo-red-glow: #6a9a4a;
-  --bo-dot-empty: #3e4a32;
-
-  --bo-panel-bg: rgba(10, 16, 8, 0.5);
-  --bo-panel-border: #22301a;
-  --bo-field-bg: rgba(10, 16, 8, 0.6);
-  --bo-field-border: #27361d;
-
-  --bo-rule: #354c26;
-  --bo-edge: #4e7038;
-  --bo-glow-rgb: 78, 112, 56;
-
-  --bo-box-bg: linear-gradient(135deg, #0e150a, #060a04);
-  --bo-box-border: #23301a;
-  --bo-box-border-lit: #3e5a2c;
-  --bo-box-fill: linear-gradient(135deg, #354c26, #1a2612);
-  --bo-card-bg: #101709;
-
-  --bo-solid-bg: linear-gradient(180deg, #3e5a2c 0%, #24341a 60%, #0c1208 100%);
-  --bo-solid-border: #4e7038;
-  --bo-solid-text: #e8f0dc;
-  --bo-header-button-bg: linear-gradient(180deg, rgba(22, 32, 16, 0.9), rgba(10, 16, 8, 0.9));
-  --bo-danger-text: #9ab87e;
-  --bo-danger-text-hot: #bcd8a0;
-  --bo-modal-bg: radial-gradient(ellipse at top, #101808 0%, #060a04 100%);
-
-  background: radial-gradient(ellipse at top, #141c0e 0%, #0b1108 50%, #050803 100%);
-}
-
-.blood-oracle .bo-app.bo-splat-group.is-cell {
-  --bo-text-dim: #a4b0c2;
-  --bo-text-muted: #56647a;
-  --bo-text-faint: #3e4a5e;
-  --bo-accent: #d09a4e;
-  --bo-accent-red: #4a74a8;
-  --bo-red-glow: #6a97cc;
-  --bo-dot-empty: #2c3c52;
-
-  --bo-panel-bg: rgba(6, 11, 19, 0.5);
-  --bo-panel-border: #121f33;
-  --bo-field-bg: rgba(6, 11, 19, 0.6);
-  --bo-field-border: #152539;
-
-  --bo-rule: #20425f;
-  --bo-edge: #35597f;
-  --bo-glow-rgb: 74, 116, 168;
-
-  --bo-box-bg: linear-gradient(135deg, #0a121e, #04080d);
-  --bo-box-border: #16253a;
-  --bo-box-border-lit: #2a4364;
-  --bo-box-fill: linear-gradient(135deg, #20425f, #0f2036);
-  --bo-card-bg: #0d1520;
-
-  --bo-solid-bg: linear-gradient(180deg, #23486a 0%, #16293f 60%, #080e18 100%);
-  --bo-solid-border: #35597f;
-  --bo-solid-text: #e6eef8;
-  --bo-header-button-bg: linear-gradient(180deg, rgba(14, 24, 40, 0.9), rgba(6, 11, 19, 0.9));
-  --bo-danger-text: #8fb0d4;
-  --bo-danger-text-hot: #b8d0ea;
-  --bo-modal-bg: radial-gradient(ellipse at top, #0c1624 0%, #05090f 100%);
-
-  background: radial-gradient(ellipse at top, #0a111b 0%, #060a11 50%, #030508 100%);
-}
 
 /* ==========================================================================
    Member roster
@@ -2232,7 +2564,7 @@
   overflow: auto;
   border: 1px solid var(--bo-field-border);
   border-radius: 2px;
-  background: rgba(10, 3, 4, 0.6);
+  background: var(--bo-picker-bg, rgba(10, 3, 4, 0.6));
 }
 
 .blood-oracle .bo-picker-rubric {
@@ -2254,7 +2586,7 @@
 
 .blood-oracle .bo-picker-rubric:hover {
   color: var(--bo-text);
-  background: rgba(90, 24, 40, 0.25);
+  background: var(--bo-menu-active, rgba(90, 24, 40, 0.25));
 }
 
 .blood-oracle .bo-picker-rubric.is-active {
@@ -2467,7 +2799,6 @@
   box-sizing: border-box;
   min-height: 80px;
   background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
-  background-color: #0c0405;
   border: 1px solid var(--bo-edge, #8b1a2a);
   border-radius: 2px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
@@ -2501,7 +2832,7 @@
   overflow-y: auto;
   padding-bottom: 4px;
   scrollbar-width: thin;
-  scrollbar-color: var(--bo-rule, #5a1020) transparent;
+  scrollbar-color: var(--bo-scroll-thumb, var(--bo-rule, #5a1020)) transparent;
 }
 
 .bo-select-menu .bo-select-group {
@@ -2524,7 +2855,7 @@
 }
 
 .bo-select-menu .bo-select-option.is-active {
-  background: rgba(90, 24, 40, 0.45);
+  background: var(--bo-menu-active, rgba(90, 24, 40, 0.45));
 }
 
 .bo-select-menu .bo-select-option.is-current {
@@ -2572,7 +2903,7 @@
 
 .blood-oracle div.bo-board-palette .bo-select {
   min-height: 28px;
-  min-width: 110px;
+  min-width: 132px;
   width: auto;
   padding: 3px 8px;
   font-size: 14px;
@@ -3526,10 +3857,6 @@
   height: 470px;
 }
 
-.blood-oracle .bo-picker-preview.is-lore .bo-prose {
-  font-size: 16px;
-}
-
 .blood-oracle .bo-detail-sub.is-unavailable {
   color: var(--bo-accent-red);
 }
@@ -3760,8 +4087,25 @@
   border-color: color-mix(in srgb, var(--bo-accent) 55%, transparent);
 }
 
+.blood-oracle.bo-chargen-window {
+  --bo-scroll-thumb: #734355;
+}
+
+.blood-oracle.bo-chargen-window.bo-splat-hunter {
+  --bo-scroll-thumb: #646267;
+}
+
+.blood-oracle.bo-chargen-window.bo-splat-werewolf {
+  --bo-scroll-thumb: #7e5054;
+}
+
 .blood-oracle.bo-chargen-window .blood-oracle-root {
   overflow: hidden;
+}
+
+.application.blood-oracle.bo-chargen-window :is(.window-content, .bo-cg-body, .bo-cg-side, .bo-picker-list, .bo-picker-preview, textarea) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-scroll-thumb) transparent;
 }
 
 .blood-oracle .bo-chargen {
@@ -3774,7 +4118,7 @@
 .blood-oracle .bo-cg-side {
   padding: 20px 18px;
   border-right: 1px solid var(--bo-panel-border);
-  background: rgba(10, 3, 4, 0.55);
+  background: var(--bo-wizard-sidebar, rgba(10, 3, 4, 0.55));
   overflow-y: auto;
 }
 
@@ -4366,7 +4710,7 @@
   gap: 14px;
   padding: 18px;
   border-left: 1px solid var(--bo-panel-border);
-  background: rgba(10, 3, 4, 0.55);
+  background: var(--bo-wizard-sidebar, rgba(10, 3, 4, 0.55));
   overflow-y: auto;
 }
 
@@ -4595,4 +4939,274 @@
 
 .blood-oracle .bo-ghost.is-arcane:hover:not(:disabled) {
   border-color: var(--bo-wp);
+}
+
+
+/* Keep the shell in the same palette when the content scrolls. */
+.application.blood-oracle:has(.bo-app.bo-splat-hunter, .bo-app.bo-splat-group.is-cell) .window-content {
+  background: #101112;
+}
+
+/* Foundry defines scrollbar colours on the scrolling elements themselves. */
+.application.blood-oracle:has(.bo-app.bo-splat-hunter, .bo-app.bo-splat-group.is-cell) {
+  --bo-scroll-thumb: #646267;
+}
+
+.blood-oracle.bo-splat-hunter :where(*),
+.blood-oracle .bo-splat-hunter :where(*),
+.blood-oracle .bo-splat-group.is-cell :where(*),
+.application.blood-oracle:has(.bo-app.bo-splat-hunter, .bo-app.bo-splat-group.is-cell) :is(.window-content, .blood-oracle-root) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-scroll-thumb) transparent;
+}
+
+.blood-oracle .bo-hunter-counters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+}
+
+.blood-oracle .bo-hunter-counters .bo-label {
+  margin-bottom: 5px;
+}
+
+.blood-oracle .bo-cg-row .bo-portrait-slot {
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
+  height: 56px;
+  min-height: 56px;
+  font-size: 13px;
+}
+
+.blood-oracle .bo-tracker:has(.bo-track-adjust) {
+  position: relative;
+}
+
+.blood-oracle .bo-track-adjust summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1px 4px;
+}
+
+.blood-oracle .bo-track-adjust summary::-webkit-details-marker {
+  display: none;
+}
+
+.blood-oracle .bo-track-adjust:not([open]) .bo-track-adjust-body {
+  display: none;
+}
+
+.blood-oracle .bo-track-adjust-body {
+  position: absolute;
+  z-index: 3;
+  top: 28px;
+  left: 0;
+  min-width: 180px;
+  padding: 8px 10px;
+  background: var(--bo-modal-bg, radial-gradient(ellipse at top, #1a0808 0%, #0a0404 100%));
+  border: 1px solid var(--bo-field-border);
+}
+
+.blood-oracle .bo-track-adjust-body .bo-spc-rating {
+  border: 0;
+  padding-block: 0;
+}
+
+@container (max-width: 700px) {
+  .blood-oracle .bo-library-picker {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .blood-oracle .bo-library-picker .bo-picker-rubrics {
+    grid-column: 1 / -1;
+    height: auto;
+    max-height: 105px;
+  }
+}
+
+.blood-oracle .bo-cg-row:has(.bo-portrait-slot) .bo-field {
+  min-width: 0;
+}
+
+.blood-oracle .bo-catalog-custom {
+  padding: 10px 0 0;
+  min-width: 0;
+  border: 0;
+  border-top: 1px solid var(--bo-rule);
+}
+
+@container (max-width: 460px) {
+  .blood-oracle .bo-library-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .blood-oracle .bo-library-picker :is(.bo-picker-list, .bo-picker-preview) {
+    height: auto;
+    max-height: 220px;
+  }
+}
+
+
+.blood-oracle .bo-principle-body.is-hunter textarea {
+  height: 92px;
+  min-height: 92px;
+  box-sizing: border-box;
+}
+
+.blood-oracle .bo-info-button.is-accent {
+  color: var(--bo-accent);
+  border-color: var(--bo-accent);
+}
+
+.application.blood-oracle.bo-dialog-remove {
+  --bo-modal-bg: #191a1c;
+  --bo-header-button-bg: #212224;
+  --bo-text: #f3f1ed;
+  --bo-text-muted: #a9aaad;
+  --bo-text-dim: #c9c9cb;
+  --bo-accent: #dedee1;
+  --bo-accent-red: #dedee1;
+  --bo-rule: #48494d;
+}
+
+
+.blood-oracle.bo-library-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  container-type: inline-size;
+  color: var(--bo-text);
+}
+
+.bo-library-portal > .bo-modal-backdrop {
+  align-items: safe center;
+  justify-content: safe center;
+  padding: 20px;
+}
+
+.blood-oracle .bo-modal.bo-picker-dialog {
+  box-sizing: border-box;
+  width: min(1220px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+}
+
+.blood-oracle .bo-picker-dialog .bo-picker {
+  grid-template-columns: clamp(125px, 16cqw, 175px) minmax(150px, 0.65fr) minmax(0, 1.35fr);
+}
+
+.blood-oracle .bo-picker-dialog .bo-picker:is(.is-single, .is-lore) {
+  grid-template-columns: minmax(150px, 0.65fr) minmax(0, 1.35fr);
+}
+
+.blood-oracle .bo-picker-dialog :is(.bo-picker-rubrics, .bo-picker-list, .bo-picker-preview) {
+  height: min(494px, 57dvh);
+}
+
+.blood-oracle .bo-picker-dialog :is(.bo-catalog-item, .bo-picker-rubric) {
+  font-size: 16.333px;
+}
+
+.blood-oracle .bo-picker-dialog :is(.bo-catalog-meta, .bo-detail-sub, .bo-ghost) {
+  font-size: 14.333px;
+}
+
+.blood-oracle .bo-picker-dialog :is(.bo-prose, .bo-field, .bo-picker-summary, .bo-lore-text) {
+  font-size: 17.333px;
+}
+
+.blood-oracle .bo-picker-dialog .bo-detail-title {
+  font-size: 27.333px;
+}
+
+.blood-oracle .bo-library-picker .bo-catalog-item.is-taken {
+  font-style: italic;
+  color: var(--bo-text-faint);
+}
+
+.blood-oracle .bo-library-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.blood-oracle .bo-library-actions .bo-ghost {
+  margin: 0;
+}
+
+.application.bo-dialog-remove button:hover {
+  color: var(--bo-text);
+}
+
+.application.bo-dialog-remove button:focus-visible {
+  outline-color: var(--bo-accent);
+}
+
+@container (max-width: 700px) {
+  .blood-oracle .bo-picker-dialog .bo-picker {
+    grid-template-columns: minmax(125px, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .blood-oracle .bo-picker-dialog .bo-picker-rubrics {
+    grid-column: 1 / -1;
+    height: auto;
+    max-height: 95px;
+  }
+}
+
+@container (max-width: 460px) {
+  .blood-oracle .bo-picker-dialog .bo-picker,
+  .blood-oracle .bo-picker-dialog .bo-picker:is(.is-single, .is-lore) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .blood-oracle .bo-picker-dialog :is(.bo-picker-list, .bo-picker-preview) {
+    height: auto;
+    max-height: 220px;
+  }
+}
+
+.blood-oracle .bo-library-name {
+  margin-bottom: 10px;
+}
+
+.blood-oracle .bo-library-picker :is(.bo-catalog-item, .bo-picker-rubric):focus-visible {
+  outline: 1px solid var(--bo-accent);
+  outline-offset: -1px;
+  box-shadow: none;
+}
+
+.blood-oracle.bo-library-portal :where(*) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-scroll-thumb, var(--bo-rule)) transparent;
+}
+
+.blood-oracle .bo-picker-dialog .bo-picker-note {
+  font-size: 15.333px;
+}
+
+.application.blood-oracle:has(.bo-app:is(.bo-splat-ghoul, [data-scroll-theme="ghoul"])) {
+  --bo-scroll-thumb: #797063;
+}
+
+.blood-oracle .bo-app:is(.bo-splat-ghoul, .bo-splat-spc, .bo-splat-mortal, [data-scroll-theme]) :where(*),
+.application.blood-oracle:has(.bo-app:is(.bo-splat-ghoul, .bo-splat-spc, .bo-splat-mortal, [data-scroll-theme])) :is(.window-content, .blood-oracle-root) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bo-scroll-thumb) transparent;
+}
+
+
+.blood-oracle .bo-portrait-slot.bo-garou-portrait {
+  width: 112px;
+}
+
+.blood-oracle input.bo-caern-share {
+  width: 5rem;
+}
+
+.blood-oracle .bo-chargen .bo-garou-portrait {
+  margin-top: 6px;
 }

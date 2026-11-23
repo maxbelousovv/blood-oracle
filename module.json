@@ -2,7 +2,7 @@
   "id": "blood-oracle",
   "title": "Blood Oracle",
   "description": "An alternative Vampire actor sheet for the World of Darkness 5e system.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "compatibility": {
     "minimum": "14",
     "verified": "14.367"
@@ -41,6 +41,30 @@
       ],
       "paths": [
         "dist"
+      ]
+    },
+    "wod5e": {
+      "customEdges": [
+        {
+          "id": "greatdestiny",
+          "label": "Great Destiny"
+        },
+        {
+          "id": "unnaturalchanges",
+          "label": "Unnatural Changes"
+        },
+        {
+          "id": "cleansetheunnatural",
+          "label": "Cleanse the Unnatural"
+        },
+        {
+          "id": "turncoat",
+          "label": "Turncoat"
+        },
+        {
+          "id": "experimentalmedicine",
+          "label": "Experimental Medicine"
+        }
       ]
     }
   },

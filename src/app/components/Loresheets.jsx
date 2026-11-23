@@ -89,7 +89,7 @@ export function LoresheetRules({ entry, owned, onClose }) {
   const texts = getLoresheetText(entry.id)
 
   return (
-    <Modal title={entry.name} subtitle={entry.restriction?.text} wide onClose={onClose}>
+    <Modal title={entry.name} subtitle={entry.source ?? entry.restriction?.text} wide onClose={onClose}>
       {texts ? (
         <>
           <p className="bo-prose bo-lore-text">{texts.description}</p>
@@ -127,7 +127,7 @@ export function LoresheetDetail({ actor, group, editable, onDropped }) {
 
   const dropAll = async () => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove loresheet' },
       content: `<p>Remove every level of <strong>${foundry.utils.escapeHTML(entry.name)}</strong> from this character?</p>`
     })
@@ -143,6 +143,7 @@ export function LoresheetDetail({ actor, group, editable, onDropped }) {
           <h3 className="bo-detail-title">{entry.name}</h3>
           <p className="bo-detail-sub">
             Loresheet · {group.dots} {group.dots === 1 ? 'dot' : 'dots'}
+            {entry.source ? ' · ' + entry.source : ''}
             {entry.restriction ? ` · ${entry.restriction.text}` : ''}
           </p>
         </div>
@@ -178,8 +179,8 @@ export function LoresheetDetail({ actor, group, editable, onDropped }) {
         ) : null}
       </div>
 
-      {texts ? (
-        <p className="bo-prose bo-lore-text is-clamped">{texts.description}</p>
+      {entry.summary || texts ? (
+        <p className="bo-prose bo-lore-text is-clamped">{entry.summary ?? texts.description}</p>
       ) : (
         <p className="bo-picker-note">{loresheetTextsLoaded() ? 'No text for this loresheet.' : NO_TEXT}</p>
       )}
@@ -202,7 +203,7 @@ export function LoresheetDetail({ actor, group, editable, onDropped }) {
                   )
                 ) : null}
               </div>
-              {texts ? <p className="bo-lore-text is-clamped-short">{texts.levels[level - 1]}</p> : null}
+              {entry.summaries || texts ? <p className="bo-lore-text is-clamped-short">{entry.summaries?.[level - 1] ?? texts.levels[level - 1]}</p> : null}
             </div>
           )
         })}

@@ -3,7 +3,7 @@ import DotTracker from './DotTracker.jsx'
 import SpecialtyPopover, { SpecialtyTooltip } from './SpecialtyPopover.jsx'
 import { TraitTip, useDelayedTip } from './TraitTip.jsx'
 import { warnLocked } from '../lock.js'
-import { readSpecialties, grantingPredator } from '../schema/specialties.js'
+import { readSpecialties, grantingPredator, specialtyLimit } from '../schema/specialties.js'
 
 /**
  * One skill: name, specialties, dots.
@@ -93,7 +93,7 @@ export default function SkillRow({ actor, entry, editable, locked, onRoll }) {
           entries={specialties}
           predator={predator}
           canEdit={canEdit}
-          limit={dots}
+          limit={specialtyLimit(actor, entry.id, dots)}
           focusAdd={popover.focusAdd}
           onClose={closePopover}
         />

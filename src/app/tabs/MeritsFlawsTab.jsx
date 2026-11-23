@@ -2,7 +2,11 @@ import { useState } from 'react'
 import DotTracker from '../components/DotTracker.jsx'
 import { SectionTitle, LabelledValue, GhostButton } from '../components/primitives.jsx'
 import { isLoaded } from '../rules/catalog.js'
+import { garouAdvantageFor } from '../rules/garou-advantages.js'
+import WerewolfReference from '../components/WerewolfReference.jsx'
+import GarouAdvantagePicker from '../components/GarouAdvantagePicker.jsx'
 import AdvantagePicker from '../components/AdvantagePicker.jsx'
+import HunterAdvantageReference from '../components/HunterAdvantageReference.jsx'
 import {
   FEATURE_TYPES,
   featuresOfType,
@@ -28,6 +32,7 @@ const SECTIONS = [
 
 function FeatureDetail({ item, editable, locked, onDelete }) {
   const meta = readAdvantageMeta(item)
+  const garou = item.parent?.type === 'werewolf' ? garouAdvantageFor(item, meta) : null
   const origin = item.parent ? featureOrigin(item.parent, item.id) : null
   const range = dotsRange(meta.dots)
 
@@ -69,11 +74,21 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
         />
       </div>
 
-      {item.system.description ? (
+      {editable && !meta.dots && !meta.hunterId ? (
+        <label className="bo-field-label">
+          <span>Description</span>
+          <textarea className="bo-field" rows={5} key={item.system.description} defaultValue={item.system.description ?? ''}
+            onBlur={(event) => {
+              if (event.target.value !== (item.system.description ?? '')) item.update({ 'system.description': event.target.value })
+            }} />
+        </label>
+      ) : item.system.description ? (
         <p className="bo-prose">{item.system.description}</p>
       ) : (
         <p className="bo-value is-empty">No description recorded.</p>
       )}
+      {meta.hunterId ? <HunterAdvantageReference key={meta.hunterId} id={meta.hunterId} source={meta.source} /> : null}
+      {garou ? <WerewolfReference id={garou.id} /> : null}
 
       {meta.hasDetails ? (
         <label className="bo-field-label" style={{ marginTop: '14px' }}>
@@ -108,6 +123,8 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
   const [selectedLore, setSelectedLore] = useState(null)
   const [pickingLore, setPickingLore] = useState(false)
 
+  const hunter = actor.type === 'hunter'
+  const werewolf = actor.type === 'werewolf'
   const selected = selectedId ? actor.items.get(selectedId) : null
   const loresheets = ownedLoresheets(actor).filter((group) => canSee(actor, group.entry.id))
   const selectedLoreGroup = selectedLore
@@ -132,7 +149,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
 
   const remove = async (item) => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove feature' },
       content: `<p>Remove <strong>${foundry.utils.escapeHTML(item.name)}</strong> from this character?</p>`
     })
@@ -174,7 +191,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
                   </div>
                   {editable ? (
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      {isLoaded() ? (
+                      {hunter || werewolf || isLoaded() ? (
                         <GhostButton
                           tone="accent"
                           onClick={() =>
@@ -250,7 +267,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
             )
           })}
 
-          <SharedFromCoterie group={groupOf(actor)} actor={actor} />
+          {!hunter ? <SharedFromCoterie group={groupOf(actor)} actor={actor} /> : null}
 
           <div style={{ marginBottom: '22px' }}>
             <div className="bo-row" style={{ marginBottom: '10px' }}>
@@ -293,6 +310,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
             />
           ) : selected ? (
             <FeatureDetail
+              key={selected.id}
               item={selected}
               editable={editable}
               locked={locked}
@@ -308,14 +326,15 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
         </div>
       </div>
 
-      {picking ? (
+      {picking && werewolf ? <GarouAdvantagePicker type={picking.type} taken={actor.items.filter((item) => item.type === 'feature').map(({ name }) => name)}
+        onPick={pickFrom} onClose={() => setPicking(null)} /> : picking ? (
         <AdvantagePicker
           actor={actor}
           kind={picking.kind}
           sectionType={picking.type}
           backgroundsOnly={picking.backgroundsOnly}
           // A clan's coterie merit can be bought by one of its Kindred alone.
-          extraEntries={picking.kind === 'merit' && !picking.backgroundsOnly ? clanCoterieEntries(actor) : null}
+          extraEntries={!hunter && picking.kind === 'merit' && !picking.backgroundsOnly ? clanCoterieEntries(actor) : null}
           onPick={pickFrom}
           onClose={() => setPicking(null)}
         />

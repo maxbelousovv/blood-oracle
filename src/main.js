@@ -1,3 +1,11 @@
+import { renderRiteExpense } from './app/roll/garou-rite-expenses.js'
+import { registerGarouCombat, renderGarouAttack } from './app/roll/garou-combat.js'
+import { packOf } from './app/schema/pack.js'
+import { renderCellDangerRequest } from './app/roll/cell-danger.js'
+import { registerGarouRollTotals, renderWerewolfRoll } from './app/roll/werewolf.js'
+import { initializeGarouBalance, reconcileGarouState, refreshGarouTokenHealth, registerGarouTokenHealth } from './app/schema/werewolf-hooks.js'
+import { registerGarouSession } from './app/schema/werewolf-session.js'
+import { guardHunterWillpowerRecovery } from './app/schema/touchstones.js'
 import { BloodOracleSheet } from './sheet/blood-oracle-sheet.js'
 import { BloodOracleBoardSheet } from './sheet/board-sheet.js'
 import { MODULE_ID } from './constants.js'
@@ -16,7 +24,7 @@ Hooks.once('init', () => {
   foundry.applications.apps.DocumentSheetConfig.registerSheet(Actor, MODULE_ID, BloodOracleSheet, {
     // Mortals and ghouls share the vampire's data model, so the same sheet
     // serves all three; what differs is which tabs it shows.
-    types: ['vampire', 'ghoul', 'mortal', 'spc', 'group'],
+    types: ['vampire', 'ghoul', 'mortal', 'hunter', 'werewolf', 'spc', 'group'],
     makeDefault: false,
     label: 'Blood Oracle'
   })
@@ -65,18 +73,31 @@ Hooks.once('init', () => {
   Hooks.on('deleteItem', redrawMembers)
   // The group itself changing — its domain, who keeps membership secret —
   // matters to members' sheets as well.
-  Hooks.on('updateActor', (actor) => {
+  Hooks.on('updateActor', (actor, changes) => {
     if (actor?.type === 'group') redrawMembers({ parent: actor })
+    if (actor?.type === 'werewolf' && (changes?.system?.experiences || changes?.['system.experiences'])) {
+      const pack = packOf(actor)
+      if (pack?.sheet?.rendered) pack.sheet.render()
+    }
   })
 
-  // Token bars need nothing from us: wod5e already declares health and
-  // willpower as the token attributes. Statuses are what it lacks.
+  registerGarouSession()
+  registerGarouCombat()
+  if (game.system.id === 'wod5e') registerGarouTokenHealth()
   registerLockSetting()
+  Hooks.on('renderChatMessageHTML', renderCellDangerRequest)
+  Hooks.on('renderChatMessageHTML', renderWerewolfRoll)
+  Hooks.on('renderChatMessageHTML', renderRiteExpense)
+  Hooks.on('renderChatMessageHTML', renderGarouAttack)
+  Hooks.on('preUpdateActor', guardHunterWillpowerRecovery)
+  Hooks.on('preCreateActor', initializeGarouBalance)
+  Hooks.on('preUpdateActor', reconcileGarouState)
+  Hooks.on('canvasReady', refreshGarouTokenHealth)
   registerTrackHooks()
   registerStatuses()
   registerStatusHooks()
 
-  console.log('Blood Oracle | Sheet registered for vampire actors.')
+  console.log('Blood Oracle | Sheets registered.')
 })
 
 Hooks.once('ready', async () => {
@@ -92,6 +113,9 @@ Hooks.once('ready', async () => {
       'Blood Oracle could not find the WOD5E roll API. The system may have changed its public interface.'
     )
   }
+
+  registerGarouRollTotals()
+  refreshGarouTokenHealth(globalThis.canvas)
 
   // Loaded once per client. A missing file is a supported state, so failure
   // here is logged rather than surfaced as an error.

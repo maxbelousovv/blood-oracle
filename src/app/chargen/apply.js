@@ -1,3 +1,5 @@
+import { isBlankGarou } from './garou.js'
+import { isBlankHunter } from './hunter.js'
 import { MODULE_ID } from '../../constants.js'
 import { getAttributeGroups, getSkillGroups } from '../traits.js'
 import { findAdvantage, entriesForDiscipline } from '../rules/catalog.js'
@@ -22,7 +24,15 @@ export const DONE_FLAG = 'chargenDone'
 
 export const CHOICE_FLAG = 'chargenChoice'
 
-export const readDraft = (actor) => actor.getFlag(MODULE_ID, DRAFT_FLAG) ?? null
+export function readDraft(actor) {
+  const draft = actor.getFlag(MODULE_ID, DRAFT_FLAG)
+  if (typeof draft !== 'string') return draft ?? null
+  try {
+    return JSON.parse(draft)
+  } catch {
+    return null
+  }
+}
 /** 'manual' once a player has chosen to fill the sheet in by hand. */
 export const chargenChoice = (actor) => actor.getFlag(MODULE_ID, CHOICE_FLAG) ?? null
 export const chooseManual = (actor) => actor.setFlag(MODULE_ID, CHOICE_FLAG, 'manual')
@@ -34,6 +44,8 @@ export const chooseManual = (actor) => actor.setFlag(MODULE_ID, CHOICE_FLAG, 'ma
  * offered it.
  */
 export function isBlankCharacter(actor) {
+  if (actor.type === 'werewolf') return isBlankGarou(actor)
+  if (actor.type === 'hunter') return isBlankHunter(actor)
   if (actor.type !== 'vampire') return false
   if (actor.items.some((item) => ['clan', 'predatorType', 'power', 'feature'].includes(item.type))) return false
   const attributes = Object.values(actor.system.attributes ?? {})
@@ -46,7 +58,7 @@ export function isBlankCharacter(actor) {
 export function shouldOfferChargen(actor) {
   return isBlankCharacter(actor) && !chargenDone(actor) && !chargenChoice(actor) && !readDraft(actor)
 }
-export const saveDraft = (actor, draft) => actor.setFlag(MODULE_ID, DRAFT_FLAG, draft)
+export const saveDraft = (actor, draft) => actor.setFlag(MODULE_ID, DRAFT_FLAG, ['hunter', 'werewolf'].includes(actor.type) ? JSON.stringify(draft) : draft)
 export const chargenDone = (actor) => Boolean(actor.getFlag(MODULE_ID, DONE_FLAG))
 
 const powerItem = (key, entry) =>

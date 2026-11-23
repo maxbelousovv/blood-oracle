@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Builds the whole rules reference — rules, loresheets, trait tooltips and
- * coterie texts — into one file, from every source in one folder:
+ * Builds the rules reference for Vampire, Hunter and Werewolf from private
+ * sources. Use --merge to add companion files to an existing reference.
  *
- *   node tools/build-reference.mjs <sources folder> <blood-oracle-rules.json> [--catalogues]
+ *   node tools/build-reference.mjs <sources folder> <blood-oracle-rules.json> [--catalogues | --merge]
  *
  * The folder holds the sources under their usual names; when there are
  * several versions of one, the highest _vN wins:
@@ -23,7 +23,8 @@
  * one at a time.
  */
 
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -31,16 +32,17 @@ import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const catalogues = args.includes('--catalogues')
+const mergeOnly = args.includes('--merge')
 const [sourcesDir, outputPath] = args.filter((arg) => !arg.startsWith('--'))
 
-if (!sourcesDir || !outputPath) {
-  console.error('Usage: node tools/build-reference.mjs <sources folder> <blood-oracle-rules.json> [--catalogues]')
+if (!sourcesDir || !outputPath || (catalogues && mergeOnly)) {
+  console.error('Usage: node tools/build-reference.mjs <sources folder> <blood-oracle-rules.json> [--catalogues | --merge]')
   process.exit(1)
 }
 
 const toolsDir = dirname(fileURLToPath(import.meta.url))
 const repoDir = resolve(toolsDir, '..')
-const work = mkdtempSync(join(tmpdir(), 'blood-oracle-'))
+const work = mergeOnly ? null : mkdtempSync(join(tmpdir(), 'blood-oracle-'))
 
 /** The newest file matching a name: highest _vN, then latest change. */
 function findSource(pattern) {
@@ -63,8 +65,8 @@ const catalogue = (file) => (catalogues ? [join(repoDir, 'src/app/rules', file)]
 const sections = []
 const skipped = []
 
-try {
-  // Rules: the base of the file.
+function rebuildVampireReference() {
+  // The standalone export is the base of the file.
   const app = findSource(/^blood_oracle.*\.jsx$/i)
   if (!app) throw new Error('No blood_oracle*.jsx in the sources folder — the rules are the base of the file.')
   console.log(`Rules        ← ${app.name}`)
@@ -109,7 +111,64 @@ try {
   } else skipped.push('coterie (no coterie tables)')
 
   reference.generated = new Date().toISOString()
-  writeFileSync(outputPath, JSON.stringify(reference))
+  return reference
+}
+
+function readIfPresent(file) {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+function readExport(text, file, format) {
+  const data = JSON.parse(text.replace(/^\uFEFF/, ''))
+  if (data?.format !== format) throw new Error(`Unexpected format in ${file}`)
+  return data
+}
+
+function mergeCompanions(reference, previous) {
+  for (const section of ['hunter', 'werewolf']) {
+    const format = 'blood-oracle-' + section + '-rules'
+    const source = findSource(new RegExp('^' + format + '(?:_v[0-9]+)?\\.json$', 'i'))
+    const existing = previous?.[section]
+    const file = source?.path ?? join(dirname(resolve(outputPath)), format + '.json')
+    const text = source || existing === undefined ? readIfPresent(file) : undefined
+    const data = text === undefined ? existing : readExport(text, file, format)[section]
+
+    if (data === undefined && text === undefined) continue
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error(`Invalid ${section} section in ${text === undefined ? outputPath : file}`)
+    }
+    reference[section] = data
+    sections.push(section)
+    console.log(`${section} ← ${text === undefined ? 'existing reference' : file}`)
+  }
+}
+
+try {
+  const original = readIfPresent(outputPath)
+  const previous = original === undefined ? undefined : readExport(original, outputPath, 'blood-oracle-rules')
+  if (mergeOnly && !previous) throw new Error('Create the base rules reference before using --merge.')
+  const reference = mergeOnly ? { ...previous } : rebuildVampireReference()
+  if (mergeOnly) sections.push('existing reference')
+  mergeCompanions(reference, previous)
+
+  // Foundry can keep serving the preceding file until the replacement is ready.
+  const temp = resolve(outputPath + '.' + randomUUID() + '.tmp')
+  try {
+    writeFileSync(temp, JSON.stringify(reference), { flag: 'wx' })
+    if (readIfPresent(outputPath) !== original) throw new Error('The target reference changed during the build.')
+    renameSync(temp, outputPath)
+  } finally {
+    try {
+      unlinkSync(temp)
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+  }
   console.log(`\nWrote ${outputPath}: ${sections.join(', ')}.`)
   if (skipped.length) console.log(`Left out: ${skipped.join('; ')}.`)
   if (catalogues) console.log('Catalogues under src/app/rules regenerated — commit them if they changed.')
@@ -117,5 +176,5 @@ try {
   console.error(`\nNot built: ${error.message}`)
   process.exitCode = 1
 } finally {
-  rmSync(work, { recursive: true, force: true })
+  if (work) rmSync(work, { recursive: true, force: true })
 }

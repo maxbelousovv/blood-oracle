@@ -7,8 +7,8 @@ field can be entered by hand — so treat it as a private convenience.
 
 ## Generating the file
 
-The reference is built from five private sources by one command. Put them in
-one folder outside the repository:
+The same build combines the Vampire tables with the Hunter and Werewolf rules.
+Keep the source files in a private folder outside the repository.
 
 | Source | Holds |
 |---|---|
@@ -17,14 +17,17 @@ one folder outside the repository:
 | `attributes*.xlsx` | attribute, skill and coterie-domain tooltips |
 | `coterie_types*.xlsx` | coterie types |
 | `coterie_advantages*.xlsx` (or `.csv`) | coterie merits, flaws and rules notes |
+| `blood-oracle-hunter-rules.json` | the Hunter section |
+| `blood-oracle-werewolf-rules.json` | the Werewolf section |
 
 ```bash
 node tools/build-reference.mjs path/to/sources Data/blood-oracle/blood-oracle-rules.json
 ```
 
 When a folder holds several versions of one source, the highest `_vN` is used.
-Only the app is required; a missing table leaves its section out and the
-build says so. Add `--catalogues` (run from the repository) to regenerate the
+The standalone app is required for a full rebuild. The build reports any missing
+Vampire tables. Hunter and Werewolf sections are taken from the source folder,
+then from the existing output file, then from companion files beside the output. Add `--catalogues` (run from the repository) to regenerate the
 names that ship with the module under `src/app/rules` when a table gains or
 renames loresheets, coterie types or coterie merits, and commit those files.
 
@@ -58,6 +61,20 @@ replacing that one file updates everyone on their next reload.
 
 Put the file in a directory of its own rather than inside the module folder —
 reinstalling or updating the module would otherwise delete it.
+
+## Combining existing references
+
+With the three JSON files in the Foundry data folder, run the builder with
+`--merge` to keep the current Vampire tables and import the two companion exports.
+
+```bash
+node tools/build-reference.mjs Data/blood-oracle Data/blood-oracle/blood-oracle-rules.json --merge
+```
+
+Keep the companion files at their original paths while older clients are in
+use. Clients that read the unified file use the embedded sections. If an older
+build reads the companion files directly, update those exports alongside the
+unified file when their rules change.
 
 ## What the reference changes
 
@@ -128,4 +145,3 @@ Discipline keys are the system's own: `animalism`, `auspex`, `celerity`,
 `protean`, `sorcery` (Blood Sorcery), `alchemy` (Thin-Blood Alchemy), and the
 pseudo-disciplines `rituals` and `ceremonies`. A custom
 discipline uses the id shown in its world setting.
-

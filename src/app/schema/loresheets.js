@@ -1,4 +1,6 @@
 import { MODULE_ID } from '../../constants.js'
+import { GAROU_LORESHEETS } from '../rules/garou-loresheets.js'
+import { HUNTER_LORESHEETS } from '../rules/hunter-loresheets.js'
 import { LORESHEETS } from '../rules/loresheets.js'
 import { getLoresheetText } from '../rules/catalog.js'
 import { readSingletonName } from './singletons.js'
@@ -15,7 +17,12 @@ import { FEATURE_TYPES } from './advantages.js'
  * Which loresheets are kept private is a list on the actor.
  */
 
-export const LORESHEET_BY_ID = Object.fromEntries(LORESHEETS.map((entry) => [entry.id, entry]))
+export const LORESHEET_BY_ID = Object.fromEntries([...LORESHEETS, ...HUNTER_LORESHEETS, ...GAROU_LORESHEETS].map((entry) => [entry.id, entry]))
+
+export function loresheetsFor(actor) {
+  if (actor.type === 'werewolf') return GAROU_LORESHEETS
+  return actor.type === 'hunter' ? HUNTER_LORESHEETS : LORESHEETS
+}
 
 const PRIVATE_FLAG = 'privateLoresheets'
 
@@ -56,25 +63,27 @@ export function ownedLoresheets(actor) {
     .sort((a, b) => a.entry.name.localeCompare(b.entry.name))
 }
 
-export async function takeLevel(actor, entry, level) {
+export function loresheetLevelData(entry, level) {
   const index = level - 1
   const name = entry.levels[index] || `Level ${level}`
-  const text = getLoresheetText(entry.id)?.levels?.[index] ?? ''
+  const text = entry.summaries?.[index] ?? getLoresheetText(entry.id)?.levels?.[index] ?? ''
 
-  const [created] = await actor.createEmbeddedDocuments('Item', [
-    {
-      name: `${entry.name}: ${name}`,
-      type: 'feature',
-      system: { featuretype: FEATURE_TYPES.merit, points: level, description: text },
-      flags: {
-        [MODULE_ID]: {
-          loresheet: { id: entry.id, level, name: entry.name },
-          // Read by the merit list's dot rules: a level costs what it costs.
-          advantage: { group: 'Loresheet', dots: String(level) }
-        }
+  return {
+    name: `${entry.name}: ${name}`,
+    type: 'feature',
+    system: { featuretype: FEATURE_TYPES.merit, points: level, description: text },
+    flags: {
+      [MODULE_ID]: {
+        loresheet: { id: entry.id, level, name: entry.name },
+        // Read by the merit list's dot rules: a level costs what it costs.
+        advantage: { group: 'Loresheet', dots: String(level) }
       }
     }
-  ])
+  }
+}
+
+export async function takeLevel(actor, entry, level) {
+  const [created] = await actor.createEmbeddedDocuments('Item', [loresheetLevelData(entry, level)])
   return created
 }
 
@@ -125,6 +134,10 @@ export function availability(actor, entry) {
 
   const clan = norm(readSingletonName(actor, 'clan'))
   const reason = restriction.text
+
+  if (restriction.skill && (Number(actor.system.skills?.[restriction.skill]?.value) || 0) < restriction.minimum) {
+    return { ok: false, reason }
+  }
 
   if (restriction.clans?.length && !restriction.clans.some((key) => clan.includes(key))) {
     return { ok: false, reason }

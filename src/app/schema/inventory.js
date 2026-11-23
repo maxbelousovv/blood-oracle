@@ -134,6 +134,7 @@ export function buildWeaponData({ name, classId }) {
 export function itemsOfSection(actor, section) {
   return actor.items
     .filter((item) => item.type === section.id)
+    .filter((item) => !section.range || (item.system.weaponType || 'melee') === section.range)
     .filter((item) => !section.place || gearPlace(item) === section.place)
     .sort((a, b) => a.name.localeCompare(b.name))
 }

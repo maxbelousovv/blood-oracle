@@ -10,7 +10,10 @@ export const PALETTE_VARS = [
   '--bo-text', '--bo-text-dim', '--bo-text-muted', '--bo-text-faint',
   '--bo-accent', '--bo-accent-red', '--bo-field-bg', '--bo-field-border',
   '--bo-panel-border', '--bo-rule', '--bo-edge', '--bo-modal-bg',
-  '--bo-red-glow', '--bo-size-note'
+  '--bo-red-glow', '--bo-size-note', '--bo-menu-active', '--bo-scroll-thumb',
+  '--bo-panel-bg', '--bo-picker-bg', '--bo-serif', '--bo-size-body', '--bo-size-label',
+  '--bo-line-prose', '--bo-header-button-bg', '--bo-danger-text', '--bo-danger-text-hot',
+  '--bo-glow-rgb', '--bo-dot', '--bo-dot-empty', '--bo-solid-bg', '--bo-solid-border', '--bo-solid-text'
 ]
 
 export function paletteOf(element) {

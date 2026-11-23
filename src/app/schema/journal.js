@@ -72,17 +72,17 @@ export function experienceTotals(actor) {
   }
 }
 
-export async function addExperience(actor, { name, amount, spend }) {
+export async function addExperience(actor, { id = foundry.utils.randomID(8), name, amount, spend }, changes = {}) {
   const value = spend ? -Math.abs(Number(amount) || 0) : Math.abs(Number(amount) || 0)
 
   const entry = {
-    id: foundry.utils.randomID(8),
+    id,
     name: String(name ?? '').trim() || (spend ? 'Spent' : 'Earned'),
     value,
     timestamp: Date.now()
   }
 
-  await actor.update({ 'system.experiences': [...readExperiences(actor), entry] })
+  await actor.update({ ...changes, 'system.experiences': [...readExperiences(actor), entry] })
   return entry
 }
 

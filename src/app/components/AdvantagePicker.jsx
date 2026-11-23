@@ -1,6 +1,9 @@
+import PickerModal from './PickerModal.jsx'
 import { useMemo, useState } from 'react'
-import { Modal, GhostButton } from './primitives.jsx'
+import { GhostButton } from './primitives.jsx'
 import { searchAdvantages } from '../rules/catalog.js'
+import { HUNTER_ADVANTAGES } from '../rules/hunter-advantages.js'
+import HunterAdvantageReference from './HunterAdvantageReference.jsx'
 import { featuresOfType } from '../schema/advantages.js'
 import { readSingletonName } from '../schema/singletons.js'
 
@@ -85,7 +88,9 @@ export default function AdvantagePicker({
   )
 
   const pool = useMemo(() => {
-    const all = searchAdvantages('', { kind, limit: 1000 })
+    const all = actor.type === 'hunter'
+      ? HUNTER_ADVANTAGES.filter((entry) => entry.kind === kind)
+      : searchAdvantages('', { kind, limit: 1000 })
     // Positive backgrounds have their own section; background flaws are flaws.
     const allowed = only ? new Set(only.map(norm)) : null
     const scoped = backgroundsOnly
@@ -97,7 +102,7 @@ export default function AdvantagePicker({
     const all2 = extraEntries?.length ? [...base, ...extraEntries] : base
     const excluded = exclude ? new Set(exclude.map(norm)) : null
     return excluded ? all2.filter((entry) => !excluded.has(norm(entry.name))) : all2
-  }, [kind, backgroundsOnly, only, extraEntries, exclude])
+  }, [actor.type, kind, backgroundsOnly, only, extraEntries, exclude])
 
   const visible = pool.filter((entry) => allowed(entry.group))
 
@@ -133,7 +138,7 @@ export default function AdvantagePicker({
     titleOverride ?? (backgroundsOnly ? 'Choose a background' : kind === 'flaw' ? 'Choose a flaw' : 'Choose a merit')
 
   return (
-    <Modal title={title} className="bo-modal is-xwide" onClose={onClose}>
+    <PickerModal title={title} onClose={onClose}>
       <input
         type="text"
         className="bo-field"
@@ -207,15 +212,18 @@ export default function AdvantagePicker({
                 {groupLabel(kind, preview.group)} · {preview.dots || '—'} {preview.dots === '1' ? 'dot' : 'dots'}
               </p>
               {preview.summary ? <p className="bo-picker-summary">{preview.summary}</p> : null}
-              <p className="bo-prose">{preview.description || 'No description recorded.'}</p>
+              {preview.summary !== preview.description || !preview.summary ? (
+                <p className="bo-prose">{preview.description || 'No description recorded.'}</p>
+              ) : null}
               {isTaken(preview) ? (
                 <p className="bo-picker-note">
                   {repeatable(preview) ? '✓ Already taken — can be taken again' : '✓ Already taken'}
                 </p>
               ) : null}
-              <GhostButton tone="accent" disabled={!canAdd(preview)} onClick={() => add(preview)}>
-                Add
-              </GhostButton>
+              <div className="bo-library-actions">
+                {preview.hunterId ? <HunterAdvantageReference inline key={preview.hunterId} id={preview.hunterId} source={preview.source} /> : null}
+                <GhostButton tone="accent" disabled={!canAdd(preview)} onClick={() => add(preview)}>Add</GhostButton>
+              </div>
             </>
           ) : (
             <p className="bo-picker-note">Point at an entry to read it.</p>
@@ -229,7 +237,7 @@ export default function AdvantagePicker({
           Show groups for other kinds of character
         </label>
       ) : null}
-    </Modal>
+    </PickerModal>
   )
 }
 

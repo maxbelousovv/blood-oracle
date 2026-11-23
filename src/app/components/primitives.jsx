@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import InfoIcon from './InfoIcon.jsx'
 
 /** Section heading: red, letter-spaced, with a fading rule beneath. */
@@ -81,11 +81,16 @@ export function FullRulesButton({ onClick }) {
  * would sit on top of unrelated windows.
  */
 export function Modal({ title, subtitle, wide = false, className, onClose, children }) {
+  const backdrop = useRef(null)
   useEffect(() => {
+    const document = backdrop.current?.ownerDocument
+    if (!document) return
     const onKey = (event) => {
-      if (event.key === 'Escape') {
+      const frontCatalog = [...document.querySelectorAll('.bo-library-portal')].at(-1)
+      if (frontCatalog && !frontCatalog.contains(backdrop.current)) return
+      if (event.key === 'Escape' && !backdrop.current?.querySelector('.bo-modal-backdrop')) {
         event.stopPropagation()
-        onClose()
+        onClose?.()
       }
     }
     // Capture phase, so Escape closes this dialog before Foundry closes the sheet.
@@ -94,16 +99,17 @@ export function Modal({ title, subtitle, wide = false, className, onClose, child
   }, [onClose])
 
   return (
-    <div className="bo-modal-backdrop" onMouseDown={onClose}>
+    <div ref={backdrop} className="bo-modal-backdrop" onMouseDown={(event) => {
+      event.stopPropagation()
+      onClose?.()
+    }}>
       <div
         className={className ?? (wide ? 'bo-modal is-wide' : 'bo-modal')}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="bo-row" style={{ alignItems: 'flex-start' }}>
           <h2 className="bo-detail-title">{title}</h2>
-          <button type="button" className="bo-modal-close" onClick={onClose} aria-label="Close">
-            ×
-          </button>
+          {onClose ? <button type="button" className="bo-modal-close" onClick={onClose} aria-label="Close">×</button> : null}
         </div>
         {subtitle ? <p className="bo-detail-sub">{subtitle}</p> : null}
         {children}

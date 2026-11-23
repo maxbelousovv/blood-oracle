@@ -1,4 +1,10 @@
-import { useState } from 'react'
+import PowerSelection from '../components/PowerSelection.jsx'
+import { specialtyLimit } from '../schema/specialties.js'
+import GarouAdvancement, { GAROU_COST_TABLE } from './GarouAdvancement.jsx'
+import GarouAdvantagePicker from '../components/GarouAdvantagePicker.jsx'
+import HunterAdvancement from './HunterAdvancement.jsx'
+import { EDGE_COST, PERK_COST } from '../schema/hunter-edges.js'
+import { useRef, useState } from 'react'
 import { GhostButton } from '../components/primitives.jsx'
 import DotTracker from '../components/DotTracker.jsx'
 import Select from '../components/Select.jsx'
@@ -13,7 +19,7 @@ import { dotsRange, readAdvantageMeta } from '../schema/advantages.js'
 import { experienceTotals } from '../schema/journal.js'
 import { COTERIE_BACKGROUNDS, coterieFeatures, groupOf } from '../schema/coterie.js'
 import { LORESHEET_BY_ID } from '../schema/loresheets.js'
-import { COST_TABLE, SPECIALTY_COST, clanOf, disciplineMultiplier, stepCost } from './costs.js'
+import { COST_TABLE, clanOf, disciplineMultiplier, stepCost } from './costs.js'
 import {
   applyPlan,
   disciplineValue,
@@ -26,7 +32,8 @@ import {
   potencyCap,
   raisableFeatures,
   skillTarget,
-  specialtyCount
+  specialtyCount,
+  specialtyPrice
 } from './plan.js'
 
 const CORE_DISCIPLINES = ['animalism', 'auspex', 'celerity', 'dominate', 'fortitude', 'obfuscate', 'oblivion', 'potence', 'presence', 'protean', 'sorcery']
@@ -78,33 +85,19 @@ function Section({ title, sub, children, actions }) {
 function LeveledPicks({ disciplineKey, cap, owned, chosen, onChange }) {
   const entries = entriesForDiscipline(disciplineKey).filter((entry) => entry.level <= cap && !owned.includes(entry.name))
   if (!entries.length) return <p className="bo-lu-sub">Nothing left to learn at this level.</p>
-  return (
-    <div className="bo-cg-powers">
-      {entries.map((entry) => {
-        const selected = chosen.includes(entry.name)
-        return (
-          <button
-            key={entry.name}
-            type="button"
-            className={selected ? 'bo-cg-power is-selected' : 'bo-cg-power'}
-            onClick={() => onChange(selected ? chosen.filter((name) => name !== entry.name) : [...chosen, entry.name])}
-          >
-            <span className="bo-cg-power-head">
-              <span className="bo-cg-card-name">{entry.name}</span>
-              <span className="bo-cg-power-level">{entry.level * 3} XP</span>
-            </span>
-            <span className="bo-cg-card-text">{entry.effect}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
+  return <PowerSelection entries={entries} chosen={chosen} onChange={onChange} experience />
 }
+
+const HUNTER_COST_TABLE = [
+  ['Attribute', 'New level × 5'], ['Skill', 'New level × 3'], ['Specialty', '3'],
+  ['Edge', EDGE_COST], ['Perk', PERK_COST], ['Advantage', '3 per dot']
+]
 
 export default function LevelUp({ actor, onClose }) {
   const [plan, setPlanState] = useState(emptyPlan)
   const [picking, setPicking] = useState(null)
   const [busy, setBusy] = useState(false)
+  const purchaseInProgress = useRef(false)
 
   const setPlan = (patch) => setPlanState((current) => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))
 
@@ -113,30 +106,35 @@ export default function LevelUp({ actor, onClose }) {
   const total = planTotal(lines)
   const left = remaining - total
   const problem = planProblem(actor, plan)
+  const hunter = actor.type === 'hunter'
+  const garou = actor.type === 'werewolf'
   const clan = clanOf(actor)
   const group = groupOf(actor)
-  const isCoterie = group && (group.system.groupType || 'coterie') === 'coterie'
+  const isCoterie = !hunter && !garou && group && (group.system.groupType || 'coterie') === 'coterie'
 
   const confirm = async () => {
-    if (!lines.length || problem || busy) return
+    if (!lines.length || problem || purchaseInProgress.current) return
+    purchaseInProgress.current = true
     const escape = foundry.utils.escapeHTML
     const list = lines.map((line) => `<li>${escape(line.label)}${line.cost ? ` — ${line.cost} XP` : ''}</li>`).join('')
-    const ok = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
-      window: { title: 'Spend experience' },
-      content:
-        `<ul>${list}</ul><p><strong>${total} XP</strong> in all; ${left} left afterwards.</p>` +
-        (left < 0 ? `<p class="bo-dialog-warning">This is ${-left} XP more than the character has. Spend it anyway?</p>` : '<p>Spend it?</p>')
-    })
-    if (!ok) return
-    setBusy(true)
     try {
+      const ok = await foundry.applications.api.DialogV2.confirm({
+        classes: ['blood-oracle', 'bo-dialog', ...(hunter || garou ? ['bo-splat-' + actor.type] : [])],
+        window: { title: 'Spend experience' },
+        content:
+          `<ul>${list}</ul><p><strong>${total} XP</strong> in all; ${left} left afterwards.</p>` +
+          (left < 0 ? `<p class="bo-dialog-warning">This is ${-left} XP more than the character has. Spend it anyway?</p>` : '<p>Spend it?</p>')
+      })
+      if (!ok) return
+      setBusy(true)
       await applyPlan(actor, plan)
       ui.notifications.info(`${actor.name} spent ${total} XP.`)
       onClose()
     } catch (error) {
       console.error('Blood Oracle | Spending experience failed', error)
       ui.notifications.error('Blood Oracle: could not apply the purchase. See the console.')
+    } finally {
+      purchaseInProgress.current = false
       setBusy(false)
     }
   }
@@ -171,7 +169,7 @@ export default function LevelUp({ actor, onClose }) {
   const skills = getSkillGroups().flatMap((group) => group.entries)
   const specialtySkills = skills.filter((entry) => {
     const dots = skillTarget(actor, plan, entry)
-    return dots > 0 && specialtyCount(actor, plan, entry.id) < dots
+    return dots > 0 && specialtyCount(actor, plan, entry.id) < specialtyLimit(actor, entry.id, dots)
   })
 
   const disciplineKeys = [...CORE_DISCIPLINES, ...(clan?.name === 'Thin-blood' || disciplineValue(actor, 'alchemy') ? ['alchemy'] : [])]
@@ -205,7 +203,7 @@ export default function LevelUp({ actor, onClose }) {
           <DotTracker
             value={pick.dots}
             min={Math.max(range.min, 1)}
-            max={Math.min(Math.max(range.max, 1), 5)}
+            max={Math.min(Math.max(range.max, 1), garou ? 6 : 5)}
             onChange={setDots}
           />
           <span className="bo-lu-cost">{pick.dots * 3} XP</span>
@@ -234,7 +232,7 @@ export default function LevelUp({ actor, onClose }) {
 
         <Section
           title="Specialties"
-          sub="3 XP each. A skill holds no more specialties than it has dots."
+          sub={hunter || garou ? "3 XP each. Your first specialty in Academics, Craft, Performance or Science is free when you gain the skill. Craft can hold more specialties than dots." : "3 XP each. A skill holds no more specialties than it has dots."}
           actions={
             <GhostButton
               tone="accent"
@@ -261,7 +259,7 @@ export default function LevelUp({ actor, onClose }) {
                   />
                 </div>
                 <input type="text" className="bo-field" value={entry.text} placeholder="e.g. Knife fighting" onChange={(event) => set({ text: event.target.value })} />
-                <span className="bo-lu-cost">{SPECIALTY_COST} XP</span>
+                <span className="bo-lu-cost">{specialtyPrice(actor, plan, entry)} XP</span>
                 <button
                   type="button"
                   className="bo-mini"
@@ -275,6 +273,11 @@ export default function LevelUp({ actor, onClose }) {
           })}
         </Section>
 
+        {garou ? <GarouAdvancement actor={actor} plan={plan} setPlan={setPlan} Stepper={Stepper} Section={Section} /> : hunter ? (
+          <Section title="Edges & Perks" sub={EDGE_COST + " XP per Edge. " + PERK_COST + " XP per Perk."}>
+            <HunterAdvancement actor={actor} plan={plan} setPlan={setPlan} />
+          </Section>
+        ) : <>
         <Section
           title="Disciplines"
           sub={
@@ -370,9 +373,11 @@ export default function LevelUp({ actor, onClose }) {
           />
         </Section>
 
+        </>}
+
         <Section
           title="Advantages"
-          sub="3 XP per dot. A loresheet level is bought on its own and costs its level × 3; it does not bring the levels below it."
+          sub={garou ? '3 XP per dot.' : "3 XP per dot. A loresheet level is bought on its own and costs its level × 3; it does not bring the levels below it."}
           actions={
             <div style={{ display: 'flex', gap: '8px' }}>
               <GhostButton tone="accent" onClick={() => setPicking('background')}>
@@ -381,9 +386,7 @@ export default function LevelUp({ actor, onClose }) {
               <GhostButton tone="accent" onClick={() => setPicking('merit')}>
                 + Merit
               </GhostButton>
-              <GhostButton tone="arcane" onClick={() => setPicking('loresheet')}>
-                + Loresheet
-              </GhostButton>
+              <GhostButton tone="arcane" onClick={() => setPicking('loresheet')}>+ Loresheet</GhostButton>
             </div>
           }
         >
@@ -526,7 +529,7 @@ export default function LevelUp({ actor, onClose }) {
 
         <div className="bo-lu-table">
           <div className="bo-label">Experience costs</div>
-          {COST_TABLE.map(([trait, cost]) => (
+          {(garou ? GAROU_COST_TABLE : hunter ? HUNTER_COST_TABLE : COST_TABLE).map(([trait, cost]) => (
             <div key={trait} className="bo-lu-line">
               <span>{trait}</span>
               <span>{cost}</span>
@@ -535,7 +538,9 @@ export default function LevelUp({ actor, onClose }) {
         </div>
       </aside>
 
-      {picking === 'loresheet' ? (
+      {picking && picking !== 'loresheet' && garou ? <GarouAdvantagePicker type={picking}
+        taken={[...actor.items.filter((item) => item.type === 'feature').map(({ name }) => name), ...plan.newFeatures.map(({ entry }) => entry.name)]}
+        onPick={(entry) => addFeaturePick(entry, 'self')} onClose={() => setPicking(null)} /> : picking === 'loresheet' ? (
         <LoresheetPicker
           actor={actor}
           onTake={(entry, level) => {

@@ -18,7 +18,7 @@ import { MODULE_ID } from '../../constants.js'
 export const BONUS_FLAG = 'trackBonus'
 
 /** Characters whose tracks follow these rules. Story characters have their own model. */
-const DERIVED_TYPES = new Set(['vampire', 'ghoul', 'mortal'])
+const DERIVED_TYPES = new Set(['vampire', 'ghoul', 'mortal', 'hunter'])
 
 function attribute(actor, key) {
   return Number(actor.system?.attributes?.[key]?.value) || 0
@@ -49,7 +49,10 @@ export function derivedMax(actor) {
   }
 }
 
-export function usesDerivedTracks(actor) {
+export function usesDerivedTracks(actor, sheetActive = false) {
+  if (actor?.type === 'werewolf') {
+    return sheetActive || actor.getFlag('core', 'sheetClass') === MODULE_ID + '.BloodOracleSheet'
+  }
   return DERIVED_TYPES.has(actor?.type)
 }
 
@@ -68,9 +71,19 @@ function fitDamage(track, max) {
   return { superficial, aggravated }
 }
 
+export function setStoryTrackMaximum(actor, key, max) {
+  const track = actor.system[key]
+  const { superficial, aggravated } = fitDamage(track, max)
+  return actor.update({
+    ['system.' + key + '.max']: max,
+    ['system.' + key + '.superficial']: superficial,
+    ['system.' + key + '.aggravated']: aggravated
+  })
+}
+
 /** The update needed to bring stored maximums in line, or null if nothing changes. */
-export function trackUpdate(actor) {
-  if (!usesDerivedTracks(actor)) return null
+export function trackUpdate(actor, sheetActive = false) {
+  if (!usesDerivedTracks(actor, sheetActive)) return null
 
   const target = derivedMax(actor)
   const update = {}
@@ -93,9 +106,9 @@ export function trackUpdate(actor) {
   return Object.keys(update).length ? update : null
 }
 
-export async function syncTracks(actor) {
+export async function syncTracks(actor, sheetActive = false) {
   if (!actor?.isOwner) return
-  const update = trackUpdate(actor)
+  const update = trackUpdate(actor, sheetActive)
   if (update) await actor.update(update)
 }
 
@@ -116,7 +129,7 @@ export function registerTrackHooks() {
       foundry.utils.hasProperty(changes, 'system.attributes') ||
       foundry.utils.hasProperty(changes, `flags.${MODULE_ID}.${BONUS_FLAG}`)
 
-    if (relevant) syncTracks(actor)
+    if (relevant) syncTracks(actor, actor.type === 'werewolf' && actor.sheet?.rendered && actor.sheet.constructor.name === 'BloodOracleSheet')
   })
 
   Hooks.on('createActor', (actor, options, userId) => {

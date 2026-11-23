@@ -67,7 +67,7 @@ export function rollOutcomes(basicDice, hungerDice) {
  * The summary and the per-success table for a pool at a difficulty.
  * Difficulty 0 means none was set: win-dependent figures come back null.
  */
-export function rollOdds(basicDice, hungerDice, difficulty = 0) {
+export function rollOdds(basicDice, hungerDice, difficulty = 0, { hunter = false } = {}) {
   const outcomes = rollOutcomes(basicDice, hungerDice)
   const target = Math.max(0, Number(difficulty) || 0)
 
@@ -95,7 +95,9 @@ export function rollOdds(basicDice, hungerDice, difficulty = 0) {
     // The pair of 10s alone, whether or not the roll then wins.
     anyPair: sum((outcome) => outcome.critical),
     win: target > 0 ? sum(wins) : null,
-    criticalWin: target > 0 ? sum((o) => wins(o) && o.critical && !o.hungerTen) : null,
+    criticalWin: target > 0 ? sum((o) => wins(o) && o.critical && (hunter || !o.hungerTen)) : null,
+    overreachChoice: hunter && target > 0 ? sum((o) => wins(o) && o.hungerOne) : null,
+    despairOnFailure: hunter && target > 0 ? sum((o) => !wins(o) && o.hungerOne) : null,
     messyCritical: target > 0 ? sum((o) => wins(o) && o.critical && o.hungerTen) : null,
     bestialFailure: target > 0 ? sum((o) => !wins(o) && o.hungerOne) : null
   }

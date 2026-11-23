@@ -7,7 +7,7 @@ import { useEffect, useId, useRef, useState } from 'react'
  * Click rather than hover, as in the original — the notes are a paragraph long
  * and a hover tooltip would be unreadable at that length.
  */
-export default function InfoIcon({ text, size = 18 }) {
+export default function InfoIcon({ text, size = 18, accent = false }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const id = useId()
@@ -49,7 +49,7 @@ export default function InfoIcon({ text, size = 18 }) {
     <span className="bo-info" ref={rootRef}>
       <button
         type="button"
-        className={open ? 'bo-info-button is-open' : 'bo-info-button'}
+        className={['bo-info-button', open && 'is-open', accent && 'is-accent'].filter(Boolean).join(' ')}
         style={{ width: `${size}px`, height: `${size}px` }}
         aria-expanded={open}
         aria-label="Toggle help"

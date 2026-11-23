@@ -16,13 +16,13 @@ function pct(p) {
  * and a table by number of successes. Willpower rerolls are not counted —
  * they depend on what the player decides after seeing the dice.
  */
-export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty, onClose }) {
+export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty, hunter = false, onClose }) {
   const [layout, setLayout] = useState(null)
   const boxRef = useRef(null)
 
   const odds = useMemo(
-    () => rollOdds(basicDice, hungerDice, difficulty),
-    [basicDice, hungerDice, difficulty]
+    () => rollOdds(basicDice, hungerDice, difficulty, { hunter }),
+    [basicDice, hungerDice, difficulty, hunter]
   )
 
   // Beside the roll dialog when there is room, so the Storyteller can change
@@ -99,8 +99,10 @@ export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty,
     ? [
         { label: `Win (${odds.difficulty}+ successes)`, value: odds.win, tone: 'is-win' },
         { label: 'Critical win', value: odds.criticalWin, tone: 'is-crit' },
-        { label: 'Messy critical', value: odds.messyCritical, tone: 'is-messy', hidden: !hungerDice },
+        { label: 'Messy critical', value: odds.messyCritical, tone: 'is-messy', hidden: hunter || !hungerDice },
         { label: 'Bestial failure', value: odds.bestialFailure, tone: 'is-bestial', hidden: !hungerDice },
+        { label: 'Overreach or Despair', value: odds.overreachChoice, tone: 'is-messy', hidden: !hunter || !hungerDice },
+        { label: 'Despair on a failed test', value: odds.despairOnFailure, tone: 'is-bestial', hidden: !hunter || !hungerDice },
         { label: 'Total failure', value: odds.totalFailure, tone: 'is-fail' }
       ]
     : [
@@ -116,7 +118,7 @@ export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty,
       onMouseDown={(event) => event.stopPropagation()}
     >
       <div className="bo-odds-head">
-        Odds · {basicDice} normal, {hungerDice} hunger
+        Odds · {basicDice} normal, {hungerDice} {hunter ? 'Desperation' : 'hunger'}
       </div>
 
       <div className="bo-odds-summary">
@@ -129,7 +131,7 @@ export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty,
             </div>
           ))}
         {!hasTarget ? (
-          <div className="bo-odds-hint">Set a difficulty to see the chance to win, crit or fail bestially.</div>
+          <div className="bo-odds-hint">Set a difficulty to see {hunter ? 'win and Despair chances.' : 'the chance to win, crit or fail bestially.'}</div>
         ) : null}
       </div>
 
@@ -153,7 +155,7 @@ export default function OddsPopover({ anchor, basicDice, hungerDice, difficulty,
       </table>
 
       <div className="bo-odds-hint">
-        Willpower rerolls are not counted. “At least N” is the chance to win at difficulty N.
+        Willpower rerolls are not counted. {hunter && hungerDice ? 'Win odds include tests that require a choice between Overreach and Despair.' : '“At least N” is the chance to win at difficulty N.'}
       </div>
     </div>,
     document.body

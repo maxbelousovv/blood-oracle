@@ -21,7 +21,8 @@ export class BloodOracleLevelUp extends ApplicationV2 {
   #mount = null
 
   constructor(actor, options = {}) {
-    super({ ...options, id: `blood-oracle-levelup-${actor.id}` })
+    const classes = [...BloodOracleLevelUp.DEFAULT_OPTIONS.classes, ...(options.classes ?? [])]
+    super({ ...options, id: `blood-oracle-levelup-${actor.id}`, classes: ['hunter', 'werewolf'].includes(actor.type) ? [...classes, 'bo-splat-' + actor.type] : classes })
     this.actor = actor
   }
 

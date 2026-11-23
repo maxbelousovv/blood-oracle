@@ -25,9 +25,10 @@ import {
 } from '../schema/custom-disciplines.js'
 import { promptImport } from '../schema/import.js'
 import { rollPower, payPowerCost, powerAction, opposingPoolText } from '../roll/power.js'
-import Select from '../components/Select.jsx'
+import LibraryPicker from '../components/LibraryPicker.jsx'
 import { disciplineOverview } from '../rules/catalog.js'
 import EntityArt from '../components/EntityArt.jsx'
+import StoryRating from '../components/StoryRating.jsx'
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V']
 
@@ -45,7 +46,8 @@ function PowerDetail({ actor, item, discipline, editable, onEdit, onDelete }) {
   const source = item.system.source ?? {}
   const sourceText = source.book ? `${source.book}${source.page ? `, p. ${source.page}` : ''}` : ''
 
-  const action = powerAction(item)
+  const story = actor.type === 'spc'
+  const action = powerAction(item, actor)
   const amalgamCheck = rules.amalgam ? checkAmalgam(actor, rules.amalgam) : { ok: true, missing: [] }
   const prereqCheck = checkPrerequisite(actor, rules.prerequisite)
   const levelCheck = checkLevel(actor, item)
@@ -65,7 +67,7 @@ function PowerDetail({ actor, item, discipline, editable, onEdit, onDelete }) {
           {action === 'roll' ? (
             <GhostButton
               tone="accent"
-              title={opposingPoolText(item) ? `Contested — opposed by ${opposingPoolText(item)}` : undefined}
+              title={!story && opposingPoolText(item) ? `Contested — opposed by ${opposingPoolText(item)}` : undefined}
               onClick={() => rollPower(actor, item)}
             >
               Roll
@@ -101,20 +103,20 @@ function PowerDetail({ actor, item, discipline, editable, onEdit, onDelete }) {
         <LabelledValue label="Opposing pool" value={rules.opposingPool} />
       </div>
 
-      {!amalgamCheck.ok ? (
+      {!story && !amalgamCheck.ok ? (
         <p style={{ color: 'var(--bo-accent-red)', fontSize: '15px', marginTop: '14px' }}>
           Requirement not met: {describeMissing(amalgamCheck.missing)}.
         </p>
       ) : null}
 
-      {!levelCheck.ok ? (
+      {!story && !levelCheck.ok ? (
         <p style={{ color: 'var(--bo-accent-red)', fontSize: '15px', marginTop: '8px' }}>
           Level {levelCheck.level} power, but {discipline?.label ?? 'the discipline'} is only at{' '}
           {levelCheck.rating}.
         </p>
       ) : null}
 
-      {prereqCheck.status === 'missing' ? (
+      {!story && prereqCheck.status === 'missing' ? (
         <p style={{ color: 'var(--bo-accent-red)', fontSize: '15px', marginTop: '8px' }}>
           Requires {describeMissingPowers(prereqCheck)}.
         </p>
@@ -190,7 +192,7 @@ function DisciplineDetail({ actor, discipline, editable, onAddPower, onRemove })
         <div>
           <h3 className="bo-detail-title">{discipline.label}</h3>
           <p className="bo-detail-sub">
-            Discipline · Level {ROMAN[value] || value || '—'}
+            {actor.type === 'spc' ? 'Discipline' : 'Discipline · Level ' + (ROMAN[value] || value || '—')}
             {discipline.custom ? ' · Custom' : ''}
           </p>
         </div>
@@ -205,7 +207,7 @@ function DisciplineDetail({ actor, discipline, editable, onAddPower, onRemove })
 
       <div className="bo-scalars" style={{ clear: 'both' }}>
         <LabelledValue label="Powers known" value={String(powers.length)} />
-        <LabelledValue label="Rating" value={String(value)} />
+        <LabelledValue label={actor.type === 'spc' ? 'Dice pool' : 'Rating'} value={String(value)} />
         {overview ? <LabelledValue label="Type" value={overview.type} /> : null}
         {overview ? (
           <LabelledValue label="Masquerade threat" value={overview.masqueradeThreat} />
@@ -243,6 +245,7 @@ function TreeNode({
   const value = Number(actor.system.disciplines?.[key]?.value) || 0
   const powers = powersOf(actor, key)
   const isSelected = selection?.kind === 'discipline' && selection.id === key
+  const story = actor.type === 'spc'
 
   return (
     <div className={isSelected ? 'bo-tree-node is-selected' : 'bo-tree-node'}>
@@ -254,12 +257,14 @@ function TreeNode({
         >
           {discipline.label}
         </button>
-        <DotTracker
+        {story ? (
+          <StoryRating actor={actor} path={'system.disciplines.' + key + '.value'} label="Dice pool" editable={editable && !locked} />
+        ) : <DotTracker
           value={value}
           disabled={!editable}
           locked={locked}
           onChange={(next) => actor.update({ [`system.disciplines.${key}.value`]: next })}
-        />
+        />}
       </div>
 
       <div className="bo-tree-powers">
@@ -268,7 +273,7 @@ function TreeNode({
           const check = rules.amalgam ? checkAmalgam(actor, rules.amalgam) : { ok: true, missing: [] }
           const prereq = checkPrerequisite(actor, rules.prerequisite)
           const level = checkLevel(actor, item)
-          const blocked = !check.ok || prereq.status === 'missing' || !level.ok
+          const blocked = !story && (!check.ok || prereq.status === 'missing' || !level.ok)
           const selected = selection?.kind === 'power' && selection.id === item.id
           const classes = ['bo-trait-name']
           if (selected) classes.push('is-selected')
@@ -279,14 +284,14 @@ function TreeNode({
           if (!check.ok) reasons.push(`Requires ${describeMissing(check.missing)}`)
           if (prereq.status === 'missing') reasons.push(`Requires ${describeMissingPowers(prereq)}`)
 
-          const action = powerAction(item)
+          const action = powerAction(item, actor)
 
           return (
             <div key={item.id} className="bo-row">
               <button
                 type="button"
                 className={classes.join(' ')}
-                title={reasons.length ? reasons.join('; ') : undefined}
+                title={!story && reasons.length ? reasons.join('; ') : undefined}
                 onClick={() => onSelectPower(item.id)}
               >
                 {item.name}
@@ -300,9 +305,9 @@ function TreeNode({
               {action === 'roll' ? (
                 <button
                   type="button"
-                  className="bo-mini"
+                  className={story ? 'bo-mini bo-spc-roll' : 'bo-mini'}
                   title={
-                    opposingPoolText(item)
+                    !story && opposingPoolText(item)
                       ? `Roll ${item.name} — contested by ${opposingPoolText(item)}`
                       : `Roll ${item.name}`
                   }
@@ -348,22 +353,23 @@ function TreeNode({
 export default function DisciplinesTab({ actor, editable, locked }) {
   const [selection, setSelection] = useState(null) // { kind: 'discipline'|'power', id }
   const [form, setForm] = useState(null)
-  const [pick, setPick] = useState('')
   const [customName, setCustomName] = useState('')
   const [adding, setAdding] = useState(false)
 
   const all = getAllDisciplines()
+  const story = actor.type === 'spc'
   const active = all.filter(
-    (d) => Number(actor.system.disciplines?.[d.id]?.value) > 0 || powersOf(actor, d.id).length > 0
+    (d) => Number(actor.system.disciplines?.[d.id]?.value) > 0 || powersOf(actor, d.id).length > 0 ||
+      (story && actor.system.disciplines?.[d.id]?.visible)
   )
 
-  const addExisting = async () => {
-    if (!pick) return
+  const addExisting = async ({ id }) => {
+    if (active.some((entry) => entry.id === id)) return
     await actor.update({
-      [`system.disciplines.${pick}.value`]: 1,
-      [`system.disciplines.${pick}.visible`]: true
+      [`system.disciplines.${id}.value`]: 1,
+      [`system.disciplines.${id}.visible`]: true
     })
-    setPick('')
+    setSelection({ kind: 'discipline', id })
     setAdding(false)
   }
 
@@ -387,7 +393,7 @@ export default function DisciplinesTab({ actor, editable, locked }) {
   const removeDiscipline = async (discipline) => {
     const powers = powersOf(actor, discipline.id)
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove discipline' },
       content:
         `<p>Remove <strong>${foundry.utils.escapeHTML(discipline.label)}</strong> from this character` +
@@ -400,13 +406,16 @@ export default function DisciplinesTab({ actor, editable, locked }) {
     if (powers.length) {
       await actor.deleteEmbeddedDocuments('Item', powers.map((p) => p.id))
     }
-    await actor.update({ [`system.disciplines.${discipline.id}.value`]: 0 })
+    await actor.update({
+      [`system.disciplines.${discipline.id}.value`]: 0,
+      ...(story ? { [`system.disciplines.${discipline.id}.visible`]: false } : {})
+    })
     setSelection(null)
   }
 
   const deletePower = async (item) => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Delete power' },
       content: `<p>Delete <strong>${foundry.utils.escapeHTML(item.name)}</strong> from this character?</p>`
     })
@@ -449,12 +458,14 @@ export default function DisciplinesTab({ actor, editable, locked }) {
   return (
     <div>
       <SectionTitle
-        info="Pick a discipline, set its level, then add powers up to that level. Powers cannot exceed the Discipline's rating. An Amalgam also requires dots in a second Discipline. Rituals and Ceremonies are kept here too, under their own headings."
+        info={story
+          ? 'Set a dice pool for each Discipline. Its powers roll that pool directly.'
+          : "Pick a discipline, set its level, then add powers up to that level. Powers cannot exceed the Discipline's rating. An Amalgam also requires dots in a second Discipline. Rituals and Ceremonies are kept here too, under their own headings."}
         actions={
           editable ? (
             <>
-              <GhostButton tone="accent" onClick={() => setAdding((v) => !v)}>
-                {adding ? 'Close' : '+ Add discipline'}
+              <GhostButton tone="accent" onClick={() => setAdding(true)}>
+                + Add discipline
               </GhostButton>
               <GhostButton onClick={() => promptImport(actor)}>Import</GhostButton>
             </>
@@ -465,52 +476,28 @@ export default function DisciplinesTab({ actor, editable, locked }) {
       </SectionTitle>
 
       {adding ? (
-        <div className="bo-panel" style={{ display: 'grid', gap: '13px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-            <label className="bo-field-label" style={{ flex: 1 }}>
-              <span>Existing discipline</span>
-              <Select
-                value={pick}
-                placeholder="Choose discipline…"
-                options={all.map((d) => {
-                  const taken = active.some((a) => a.id === d.id)
-                  return {
-                    value: d.id,
-                    label: d.label,
-                    disabled: taken,
-                    hint: taken ? 'already chosen' : d.custom ? 'custom' : undefined
-                  }
-                })}
-                onChange={setPick}
-              />
-            </label>
-            <GhostButton tone="accent" onClick={addExisting} disabled={!pick}>
-              Add
-            </GhostButton>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-            <label className="bo-field-label" style={{ flex: 1 }}>
-              <span>Or inscribe a new one</span>
-              <input
-                type="text"
-                className="bo-field"
-                value={customName}
-                placeholder="Name of the homebrew discipline"
-                onChange={(e) => setCustomName(e.target.value)}
-              />
-            </label>
-            <GhostButton tone="accent" onClick={addCustom} disabled={!customName.trim()}>
-              Create
-            </GhostButton>
-          </div>
-
-          <p style={{ color: 'var(--bo-text-faint)', fontSize: '14px', margin: 0 }}>
-            A new discipline is registered with the system, so it becomes available to every
-            character in this world and works on the wod5e sheet as well. Creating one requires GM
-            rights.
-          </p>
-        </div>
+        <LibraryPicker title="Choose a discipline" onClose={() => setAdding(false)} onAdd={addExisting}
+          entries={all.map((discipline) => {
+            const overview = disciplineOverview(discipline.id)
+            return {
+              id: discipline.id, name: discipline.label, disabled: active.some(({ id }) => id === discipline.id),
+              group: discipline.custom ? 'Custom' : 'Disciplines', summary: overview?.description, overview
+            }
+          })}
+          renderDetails={({ overview }) => overview ? (
+            <div className="bo-scalars">
+              <LabelledValue label="Type" value={overview.type} />
+              <LabelledValue label="Masquerade threat" value={overview.masqueradeThreat} />
+              <LabelledValue label="Resonance" value={overview.resonance} />
+            </div>
+          ) : null}
+          custom={
+            <div className="bo-row">
+              <input className="bo-field" aria-label="Custom discipline name" placeholder="Name of the custom discipline"
+                value={customName} onChange={(event) => setCustomName(event.target.value)} />
+              <GhostButton disabled={!customName.trim()} onClick={addCustom}>Create custom discipline</GhostButton>
+            </div>
+          } />
       ) : null}
 
       <div className="bo-master-detail">

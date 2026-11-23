@@ -30,9 +30,13 @@ let loading = null
 export const LORESHEETS_FILE = 'blood-oracle-loresheets.json'
 export const TRAITS_FILE = 'blood-oracle-traits.json'
 export const COTERIE_FILE = 'blood-oracle-coterie.json'
+const HUNTER_FILE = 'blood-oracle-hunter-rules.json'
+const WEREWOLF_FILE = 'blood-oracle-werewolf-rules.json'
 let loresheetTexts = null
 let traitTexts = null
 let coterieTexts = null
+let hunterTexts = null
+let werewolfTexts = null
 
 /**
  * A private companion file, found by name beside the rules reference. Missing
@@ -66,15 +70,49 @@ async function loadSections(rulesPath, data) {
   loresheetTexts = data?.loresheets ?? null
   traitTexts = data?.traits ?? null
   coterieTexts = data?.coterie ?? null
+  hunterTexts = data?.hunter ?? null
+  werewolfTexts = data?.werewolf ?? null
   if (!rulesPath) return
-  const [loresheets, traits, coterie] = await Promise.all([
+  const [loresheets, traits, coterie, hunter, werewolf] = await Promise.all([
     loresheetTexts ? null : loadCompanion(rulesPath, LORESHEETS_FILE, 'blood-oracle-loresheets', 'loresheets', 'loresheet texts'),
     traitTexts ? null : loadCompanion(rulesPath, TRAITS_FILE, 'blood-oracle-traits', 'traits', 'trait texts'),
-    coterieTexts ? null : loadCompanion(rulesPath, COTERIE_FILE, 'blood-oracle-coterie', null, 'coterie texts')
+    coterieTexts ? null : loadCompanion(rulesPath, COTERIE_FILE, 'blood-oracle-coterie', null, 'coterie texts'),
+    hunterTexts ? null : loadCompanion(rulesPath, HUNTER_FILE, 'blood-oracle-hunter-rules', 'hunter', 'Hunter rules'),
+    werewolfTexts ? null : loadCompanion(rulesPath, WEREWOLF_FILE, 'blood-oracle-werewolf-rules', 'werewolf', 'Werewolf rules')
   ])
   loresheetTexts ??= loresheets
   traitTexts ??= traits
   coterieTexts ??= coterie
+  hunterTexts ??= hunter
+  werewolfTexts ??= werewolf
+}
+
+export function getHunterEdgeText(id) {
+  return hunterTexts?.edges?.[id]?.text ?? ''
+}
+
+export function getHunterPerkText(edgeId, name) {
+  return hunterTexts?.perks?.[edgeId]?.[name] ?? ''
+}
+
+export function getHunterEdgeVariantText(edgeId, name) {
+  return hunterTexts?.edgeVariants?.[edgeId]?.[name] ?? ''
+}
+
+export function getHunterEquipmentText(id) {
+  return hunterTexts?.equipment?.[id] ?? ''
+}
+
+export function getHunterAdvantageText(id) {
+  return hunterTexts?.advantages?.[id] ?? ''
+}
+
+export function getHunterCreedSections(name) {
+  return hunterTexts?.creeds?.[name.toLowerCase()] ?? []
+}
+
+export function getWerewolfReference(id) {
+  return werewolfTexts?.[id] ?? null
 }
 
 /**
@@ -124,7 +162,7 @@ export function getTraitText(id, label) {
 
 /** { description, levels: [five texts] } for a loresheet, or null. */
 export function getLoresheetText(id) {
-  return loresheetTexts?.[id] ?? null
+  return hunterTexts?.loresheets?.[id] ?? werewolfTexts?.[id]?.loresheet ?? loresheetTexts?.[id] ?? null
 }
 
 export function loresheetTextsLoaded() {
@@ -183,6 +221,8 @@ export async function loadRules({ force = false } = {}) {
     loresheetTexts = null
     traitTexts = null
     coterieTexts = null
+    hunterTexts = null
+    werewolfTexts = null
     return null
   }
 

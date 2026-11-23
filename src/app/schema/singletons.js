@@ -6,7 +6,7 @@ import { MODULE_ID } from '../../constants.js'
  * there, so an actor never ends up with two clans.
  */
 
-const SINGLETON_TYPES = ['clan', 'predatorType', 'resonance']
+const SINGLETON_TYPES = ['clan', 'predatorType', 'resonance', 'creed', 'drive', 'tribe', 'auspice']
 
 export function readSingleton(actor, type) {
   return actor.items.find((item) => item.type === type) ?? null

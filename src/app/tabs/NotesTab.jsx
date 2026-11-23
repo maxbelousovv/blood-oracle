@@ -30,7 +30,7 @@ function NoteCard({ actor, note, editable }) {
   const confirmRemove = async () => {
     const named = note.title?.trim() || 'this note'
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Delete note' },
       content: `<p>Delete <strong>${foundry.utils.escapeHTML(named)}</strong>? This cannot be undone.</p>`
     })
@@ -149,7 +149,7 @@ function ExperienceLedger({ actor, editable }) {
               type="text"
               className="bo-field"
               value={name}
-              placeholder="Session 12, raised Auspex to 3…"
+              placeholder="e.g. Session 12"
               onChange={(event) => setName(event.target.value)}
             />
           </label>
@@ -245,15 +245,15 @@ export default function NotesTab({ actor, editable }) {
         </div>
       ) : (
         <p className="bo-empty" style={{ textAlign: 'left' }}>
-          Nothing written down. The Kindred who remember everything are the ones who last.
+          {actor.type === 'vampire' ? 'Nothing written down. The Kindred who remember everything are the ones who last.' : 'Nothing written down yet.'}
         </p>
       )}
 
-      <div style={{ marginTop: '30px' }}>
+      {actor.type !== 'spc' ? <div style={{ marginTop: '30px' }}>
         <SectionTitle
         info="Positive entries are earned, negative are spent. Kept in the system's own ledger, so the totals match the wod5e sheet exactly.">Experience</SectionTitle>
         <ExperienceLedger actor={actor} editable={editable} />
-      </div>
+      </div> : null}
     </div>
   )
 }

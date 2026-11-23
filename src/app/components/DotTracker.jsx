@@ -25,6 +25,7 @@ export default function DotTracker({
       {Array.from({ length: max }, (_, i) => {
         const n = i + 1
         const filled = n <= value
+        const dotColor = typeof color === 'function' ? color(n) : color
         return (
           <button
             key={n}
@@ -53,9 +54,9 @@ export default function DotTracker({
               padding: 0,
               lineHeight: 1,
               borderRadius: '50%',
-              border: `1px solid ${filled ? color : 'var(--bo-dot-empty)'}`,
-              background: filled ? color : 'transparent',
-              boxShadow: filled ? '0 0 6px rgba(200, 160, 96, 0.33)' : 'none',
+              border: `1px solid ${filled ? dotColor : 'var(--bo-dot-empty)'}`,
+              background: filled ? dotColor : 'transparent',
+              boxShadow: filled ? `0 0 6px color-mix(in srgb, ${dotColor} 33%, transparent)` : 'none',
               cursor: disabled ? 'default' : 'pointer',
               opacity: disabled ? 0.5 : 1,
               // Locked dots stay fully legible; only the outline softens.

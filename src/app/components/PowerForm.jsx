@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Modal, GhostButton } from './primitives.jsx'
 import CatalogPicker from './CatalogPicker.jsx'
+import { entriesForDiscipline } from '../rules/catalog.js'
 import { MODULE_ID } from '../../constants.js'
-import { parseRouseCost, parseDicePool, splitSource, RULE_FLAG_FIELDS } from '../schema/disciplines.js'
+import { buildPowerItemData, parseRouseCost, parseDicePool, splitSource, RULE_FLAG_FIELDS } from '../schema/disciplines.js'
 
 const TEXT_FIELDS = [
   ['effect', 'Effect', true],
@@ -35,6 +36,8 @@ function draftFromItem(item) {
 export default function PowerForm({ actor, disciplineKey, item, onClose }) {
   const [draft, setDraft] = useState(() => (item ? draftFromItem(item) : { name: '', level: 1 }))
   const [busy, setBusy] = useState(false)
+  const hasCatalog = entriesForDiscipline(disciplineKey).length > 0
+  const [picking, setPicking] = useState(() => !item && hasCatalog ? 'add' : null)
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }))
 
@@ -105,9 +108,31 @@ export default function PowerForm({ actor, disciplineKey, item, onClose }) {
     }
   }
 
+  if (picking === 'add') {
+    return (
+      <CatalogPicker actor={actor} discipline={disciplineKey} ownedNames={ownedNames} onClose={onClose}
+        custom={<GhostButton onClick={() => setPicking(null)}>Create custom power</GhostButton>}
+        onPick={async (entry) => {
+          const data = buildPowerItemData({
+            rawName: entry.originalName || entry.name,
+            disciplineKey,
+            level: entry.level,
+            rules: entry
+          })
+          const [created] = await actor.createEmbeddedDocuments('Item', [data])
+          if (!created) throw new Error('Power was not created')
+          onClose()
+        }} />
+    )
+  }
+
   return (
     <Modal wide title={item ? 'Edit power' : 'Inscribe a power'} onClose={onClose}>
-      <CatalogPicker actor={actor} discipline={disciplineKey} onPick={applyEntry} ownedNames={ownedNames} />
+      {hasCatalog ? <GhostButton tone="accent" onClick={() => setPicking('browse')}>Browse the reference</GhostButton> : null}
+      {picking === 'browse' ? (
+        <CatalogPicker actor={actor} discipline={disciplineKey} ownedNames={ownedNames} action="Use"
+          onClose={() => setPicking(null)} onPick={(entry) => { applyEntry(entry); setPicking(null) }} />
+      ) : null}
 
       <div style={{ display: 'flex', gap: '12px', margin: '14px 0 13px' }}>
         <label className="bo-field-label" style={{ flex: 3 }}>

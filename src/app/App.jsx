@@ -1,18 +1,26 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { isLocked, setLocked } from './lock.js'
-import { splatOf, splatClass } from './splats.js'
+import { splatOf, splatClass, STORY_CHARACTER_TYPES, storyCharacterType } from './splats.js'
 import StatisticsTab from './tabs/StatisticsTab.jsx'
 import LimitedView from './tabs/LimitedView.jsx'
 import GroupApp from './tabs/GroupApp.jsx'
 import BiographyTab from './tabs/BiographyTab.jsx'
 import BloodTab from './tabs/BloodTab.jsx'
+import CreedTab from './tabs/CreedTab.jsx'
 import DisciplinesTab from './tabs/DisciplinesTab.jsx'
+import EdgesTab from './tabs/EdgesTab.jsx'
+import StoryGiftsTab from './tabs/StoryGiftsTab.jsx'
+import GarouTab, { GarouPowersTab } from './tabs/GarouTab.jsx'
+import GarouIdentityTab from './tabs/GarouIdentityTab.jsx'
+import { werewolfRollFlavor } from './roll/werewolf.js'
+import { StoryQuickRoll } from './tabs/StoryCharacterPools.jsx'
 import MeritsFlawsTab from './tabs/MeritsFlawsTab.jsx'
 import InventoryTab from './tabs/InventoryTab.jsx'
 import NotesTab from './tabs/NotesTab.jsx'
 import RollPanel from './roll/RollPanel.jsx'
 import { rouseCheck, resistFrenzy, willpowerPool } from './roll/checks.js'
 import EditableText from './components/EditableText.jsx'
+import Select from './components/Select.jsx'
 import { BloodOracleChargen } from '../sheet/chargen-app.js'
 import { chargenDone, readDraft, shouldOfferChargen } from './chargen/apply.js'
 
@@ -30,7 +38,13 @@ const ALL_TABS = [
   { id: 'bio', label: 'Biography' },
   { id: 'stats', label: 'Statistics' },
   { id: 'blood', label: 'Blood' },
+  { id: 'creed', label: 'Creed & Drive' },
+  { id: 'garou-identity', label: 'Auspice & Tribe' },
   { id: 'disciplines', label: 'Disciplines' },
+  { id: 'edges', label: 'Edges' },
+  { id: 'gifts', label: 'Gifts' },
+  { id: 'forms', label: 'Forms' },
+  { id: 'garou-powers', label: 'Gifts & Rites' },
   { id: 'merits', label: 'Merits & flaws' },
   { id: 'inventory', label: 'Inventory' },
   { id: 'notes', label: 'Notes & XP' }
@@ -64,13 +78,44 @@ function Padlock({ locked, onToggle }) {
 }
 
 function Header({ actor, editable, locked, onToggleLock, onQuickRoll, onResistFrenzy, splat }) {
+  const [savingType, setSavingType] = useState(false)
   const headers = actor.system?.headers ?? {}
-  const clan = actor.items.find((item) => item.type === 'clan')?.name
-  const generation = actor.system?.blood?.generation ?? headers.generation
+  const storyType = storyCharacterType(actor)
+  const hunter = actor.type === 'hunter'
+  const werewolf = actor.type === 'werewolf'
+  const clan = !storyType || storyType === 'vampire' || storyType === 'ghoul'
+  const lineage = (hunter || clan) && actor.items.find((item) => item.type === (werewolf ? 'tribe' : hunter ? 'creed' : 'clan'))?.name
+  const generation = !hunter && !werewolf && (!storyType || storyType === 'vampire') && (actor.system?.blood?.generation ?? headers.generation)
+
+  async function changeType(value) {
+    setSavingType(true)
+    try {
+      await actor.update({ 'system.spcType': value })
+    } catch (error) {
+      console.error('Blood Oracle | Could not change NPC type', error)
+      ui.notifications.error('The NPC type could not be saved.')
+    } finally {
+      setSavingType(false)
+    }
+  }
+
+  async function choosePortrait() {
+    const picker = new foundry.applications.apps.FilePicker.implementation({
+      type: 'image',
+      current: actor.img,
+      callback: (img) => actor.update({ img })
+    })
+    await picker.browse()
+  }
 
   return (
     <header className="bo-header">
-      {actor.img ? <img src={actor.img} alt="" className="bo-portrait" /> : null}
+      {storyType && editable ? (
+        <button type="button" className="bo-portrait bo-spc-portrait"
+          aria-label="Change portrait" title="Change portrait" onClick={choosePortrait}>
+          {actor.img ? <img src={actor.img} alt="" /> : <i className="fa-solid fa-user" aria-hidden="true" />}
+        </button>
+      ) : actor.img ? <img src={actor.img} alt="" className="bo-portrait" /> : null}
       <div style={{ flex: 1, minWidth: 0 }}>
         <EditableText
           className="bo-name"
@@ -88,11 +133,15 @@ function Header({ actor, editable, locked, onToggleLock, onQuickRoll, onResistFr
             placeholder="No concept recorded"
             onCommit={(next) => actor.update({ 'system.headers.concept': next })}
           />
-          {clan ? ` · ${clan}` : ''}
+          {lineage ? ` · ${lineage}` : ''}
           {generation ? ` · ${generation}th` : ''}
         </p>
       </div>
       <div className="bo-header-actions">
+        {storyType ? (
+          <Select className="bo-spc-type" title="NPC type" value={storyType}
+            options={STORY_CHARACTER_TYPES} disabled={!editable || savingType} onChange={changeType} />
+        ) : null}
         {splat.resistFrenzy ? (
           <button type="button" className="bo-header-button is-danger" onClick={onResistFrenzy}>
             Resist frenzy
@@ -100,7 +149,7 @@ function Header({ actor, editable, locked, onToggleLock, onQuickRoll, onResistFr
         ) : null}
         {/* Only a creation left half-way gets a button; starting one is the
             first-open question's job, or the window menu's. */}
-        {editable && actor.type === 'vampire' && !chargenDone(actor) && readDraft(actor) ? (
+        {editable && ['vampire', 'hunter', 'werewolf'].includes(actor.type) && !chargenDone(actor) && readDraft(actor) ? (
           <button type="button" className="bo-header-button is-accent" onClick={() => BloodOracleChargen.open(actor)}>
             Continue creation
           </button>
@@ -118,6 +167,8 @@ export default function App({ store }) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const [tab, setTab] = useState('stats')
   const [rollSlots, setRollSlots] = useState(null)
+  const [edgePool, setEdgePool] = useState(null)
+  const [storyRoll, setStoryRoll] = useState(false)
   const [locked, setLockedState] = useState(() => isLocked())
   // Asked once per opening of the sheet, never on every re-render.
   const offered = useRef(false)
@@ -154,10 +205,11 @@ export default function App({ store }) {
 
   // Computed after the snapshot is unpacked — `actor` does not exist before it.
   const splat = splatOf(actor)
+  const storyType = storyCharacterType(actor)
   const tabs = ALL_TABS.filter((entry) => splat.tabs.includes(entry.id))
   // Switching an actor's type, or opening a mortal on a remembered tab, must
   // not leave the sheet pointing at a tab this splat does not have.
-  const activeTab = tabs.some((entry) => entry.id === tab) ? tab : tabs[0]?.id
+  const activeTab = tabs.some((entry) => entry.id === tab) ? tab : storyType ? 'stats' : tabs[0]?.id
 
   return (
     <div className={`bo-app ${splatClass(actor)}`}>
@@ -167,7 +219,7 @@ export default function App({ store }) {
         locked={locked}
         onToggleLock={toggleLock}
         splat={splat}
-        onQuickRoll={() => setRollSlots([null, null, null])}
+        onQuickRoll={() => storyType ? setStoryRoll(true) : setRollSlots([null, null, null])}
         onResistFrenzy={() => resistFrenzy(actor)}
       />
 
@@ -179,7 +231,7 @@ export default function App({ store }) {
             onClick={() => setTab(t.id)}
             className={t.id === activeTab ? 'bo-tab bo-tab-active' : 'bo-tab'}
           >
-            {t.label}
+            {t.id === 'notes' && storyType ? 'Notes' : t.label}
           </button>
         ))}
       </nav>
@@ -199,6 +251,7 @@ export default function App({ store }) {
                 actor,
                 data: actor.system,
                 title: game.i18n.localize('WOD5E.Chat.RollingWillpower'),
+                flavor: actor.type === 'werewolf' ? werewolfRollFlavor({ flavor: '', frenzy: true }) : '',
                 selectors: ['willpower'],
                 quickRoll: true
               })
@@ -207,18 +260,29 @@ export default function App({ store }) {
         ) : null}
         {activeTab === 'bio' ? <BiographyTab actor={actor} editable={editable} /> : null}
         {activeTab === 'blood' ? <BloodTab actor={actor} editable={editable} locked={locked} /> : null}
+        {activeTab === 'creed' ? <CreedTab actor={actor} editable={editable} /> : null}
         {activeTab === 'disciplines' ? <DisciplinesTab actor={actor} editable={editable} locked={locked} /> : null}
+        {activeTab === 'edges' ? <EdgesTab actor={actor} editable={editable} locked={locked} onRoll={setEdgePool} /> : null}
+        {activeTab === 'gifts' ? <StoryGiftsTab actor={actor} editable={editable} locked={locked} /> : null}
+        {activeTab === 'forms' ? <GarouTab actor={actor} editable={editable} /> : null}
+        {activeTab === 'garou-identity' ? <GarouIdentityTab actor={actor} /> : null}
+        {activeTab === 'garou-powers' ? <GarouPowersTab actor={actor} editable={editable} /> : null}
         {activeTab === 'merits' ? <MeritsFlawsTab actor={actor} editable={editable} locked={locked} /> : null}
         {activeTab === 'inventory' ? <InventoryTab actor={actor} editable={editable} /> : null}
         {activeTab === 'notes' ? <NotesTab actor={actor} editable={editable} /> : null}
       </div>
 
-      {rollSlots ? (
+      {storyRoll ? <StoryQuickRoll actor={actor} editable={editable} onClose={() => setStoryRoll(false)} /> : null}
+      {rollSlots || edgePool ? (
         <RollPanel
           actor={actor}
           editable={editable}
           initialSlots={rollSlots}
-          onClose={() => setRollSlots(null)}
+          edgePool={edgePool}
+          onClose={() => {
+            setRollSlots(null)
+            setEdgePool(null)
+          }}
         />
       ) : null}
     </div>

@@ -1,6 +1,8 @@
 import { bloodPotencyRow } from './tables.js'
 import { readPowerRules } from '../schema/disciplines.js'
 import { isEmptyValue } from '../components/primitives.jsx'
+import { usesHunger } from '../splats.js'
+import { rollStoryPool } from './story-character.js'
 
 /**
  * Work out what a power costs from its own wording.
@@ -58,7 +60,8 @@ export function costOptions(item) {
  * is pay for it. Neither means the power simply takes effect, and a button
  * would be noise.
  */
-export function powerAction(item) {
+export function powerAction(item, actor) {
+  if (actor?.type === 'spc') return 'roll'
   const hasPool = Object.keys(item.system.dicepool ?? {}).length > 0
   if (hasPool) return 'roll'
 
@@ -97,7 +100,7 @@ async function chooseCost(item, cost) {
  * choice. Returns null if the player cancelled.
  */
 async function resolveCost(actor, item) {
-  const isVampire = actor.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
+  const isVampire = usesHunger(actor)
   const cost = costOptions(item)
 
   if (!cost.ask) return isVampire ? cost.rouse : 0
@@ -165,7 +168,16 @@ async function rollOpposing(actor, item, text, dice) {
 }
 
 export async function rollPower(actor, item) {
-  const isVampireActor = actor.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
+  if (actor.type === 'spc') {
+    const key = item.system.discipline
+    return rollStoryPool(actor, {
+      label: item.name,
+      dice: Number(actor.system.disciplines?.[key]?.value) || 0,
+      selectors: ['disciplines', 'disciplines.' + key],
+      macro: item.system.macroid
+    })
+  }
+  const isVampire = usesHunger(actor)
 
   const dicepool = item.system.dicepool ?? {}
   const valuePaths = []
@@ -184,8 +196,6 @@ export async function rollPower(actor, item) {
     )
     return
   }
-
-  const isVampire = isVampireActor
 
   // A contested power asks for the other side's dice before anything is
   // rolled or paid, so cancelling here cancels the whole action.

@@ -1,3 +1,5 @@
+import LibraryPicker from '../components/LibraryPicker.jsx'
+import RulesReference from '../components/RulesReference.jsx'
 import { useState } from 'react'
 import { SectionTitle, LabelledValue, GhostButton } from '../components/primitives.jsx'
 import {
@@ -19,11 +21,58 @@ import {
 import WeaponDialog from '../components/WeaponDialog.jsx'
 import ArmorDialog from '../components/ArmorDialog.jsx'
 import Select from '../components/Select.jsx'
+import { MODULE_ID } from '../../constants.js'
+import { HUNTER_AMMO } from '../roll/hunter-equipment.js'
+import { getHunterEquipmentText } from '../rules/catalog.js'
+import {
+  HUNTER_ARMOR_RULE,
+  HUNTER_EQUIPMENT,
+  HUNTER_WEAPON_RULE,
+  buildHunterEquipment,
+  hunterWeaponRange
+} from '../rules/hunter-equipment.js'
 
-function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
+
+const HUNTER_SECTIONS = SECTIONS.flatMap((section) => section.id === 'weapon' ? [
+  { ...section, label: 'Melee Weapons', range: 'melee' },
+  { ...section, label: 'Ranged Weapons', range: 'ranged' }
+] : [section])
+
+function EquipmentReference({ id, title = "Equipment rules", inline }) {
+  const text = getHunterEquipmentText(id)
+  if (!text) return null
+  return (
+    <RulesReference title={title} source="Core Rulebook" inline={inline}>
+      <div className="bo-prose" style={{ whiteSpace: 'pre-line' }}>{text}</div>
+    </RulesReference>
+  )
+}
+
+function HunterEquipment({ section, onAdd, onCustom, onClose }) {
+  const entries = HUNTER_EQUIPMENT.filter((entry) => {
+    if (entry.type !== section.id || section.place === GEAR_PLACES.property) return false
+    return !section.range || hunterWeaponRange(entry) === section.range
+  })
+  return (
+    <LibraryPicker title={section.label} entries={entries} onClose={onClose}
+      onAdd={async (entry) => { await onAdd(entry); onClose() }}
+      custom={<GhostButton onClick={onCustom}>+ Custom item</GhostButton>}
+      renderDetails={(entry) => (
+        <>
+          {entry.damage != null ? <LabelledValue label="Damage" value={`+${entry.damage}`} /> : null}
+          {entry.rating != null ? <LabelledValue label="Armor" value={entry.rating} /> : null}
+        </>
+      )}
+      renderRules={(entry) => entry.type === 'gear' ? <EquipmentReference inline key={entry.id} id={entry.reference} title={entry.name} /> : null} />
+  )
+}
+
+function Detail({ item, editable, hunter, onDelete, onEditWeapon, onEditArmor }) {
   const section = item.type
   const rating = armorRating(item)
   const wclass = section === 'weapon' ? weaponClass(item) : null
+  const template = hunter && HUNTER_EQUIPMENT.find(({ id }) => id === item.getFlag(MODULE_ID, 'hunterEquipment'))
+  const specialWeapon = template && section === 'weapon' && !template.classId
 
   return (
     <div className="bo-panel">
@@ -37,7 +86,7 @@ function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
         </div>
         {editable ? (
           <div style={{ display: 'flex', gap: '6px' }}>
-            {section === 'weapon' ? <GhostButton onClick={onEditWeapon}>Edit</GhostButton> : null}
+            {section === 'weapon' && !specialWeapon ? <GhostButton onClick={onEditWeapon}>Edit</GhostButton> : null}
             {section === 'armor' ? <GhostButton onClick={onEditArmor}>Edit</GhostButton> : null}
             <GhostButton tone="danger" onClick={onDelete}>
               Remove
@@ -49,8 +98,10 @@ function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
       {section === 'weapon' ? (
         <div className="bo-scalars" style={{ marginBottom: '14px' }}>
           <LabelledValue label="Range" value={item.system.weaponType === 'ranged' ? 'Ranged' : 'Melee'} />
-          <LabelledValue label="Class" value={wclass?.label ?? '—'} />
-          <LabelledValue label="Damage" value={`+${Number(item.system.weaponvalue) || 0}`} />
+          <LabelledValue label="Class" value={specialWeapon ? 'Special weapon' : wclass?.label ?? '—'} />
+          <LabelledValue label="Damage" value={specialWeapon && template.damage == null
+            ? 'See properties'
+            : `+${Number(item.system.weaponvalue) || 0}`} />
         </div>
       ) : null}
 
@@ -63,6 +114,49 @@ function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
             value={rating ? String(rating.vsBullets ?? rating.dice) : '—'}
           />
           <LabelledValue label="Dexterity" value={rating?.dexPenalty ? `−${rating.dexPenalty} die` : '—'} />
+        </div>
+      ) : null}
+
+      {hunter && section === 'weapon' ? (
+        <div className="bo-block">
+          <label className="bo-field-label">
+            <span>Properties</span>
+            <textarea className="bo-field" rows={3} disabled={!editable}
+              key={item.id}
+              defaultValue={item.getFlag(MODULE_ID, 'weaponProperties') ?? ''}
+              onBlur={(event) => item.setFlag(MODULE_ID, 'weaponProperties', event.target.value)} />
+          </label>
+          <div className="bo-pair-grid">
+            <label className="bo-field-label">
+              <span>Disguise</span>
+              <Select value={item.getFlag(MODULE_ID, 'hunterDisguised') ?? ''} disabled={!editable}
+                options={[
+                  { value: '', label: 'None' },
+                  { value: 'standard', label: 'Disguised (−1 die)' },
+                  { value: 'critical', label: 'Disguised (critical craft)' }
+                ]}
+                onChange={(value) => item.setFlag(MODULE_ID, 'hunterDisguised', value)} />
+            </label>
+            {item.system.weaponType === 'ranged' && !specialWeapon ? (
+              <label className="bo-field-label">
+                <span>Compatible special ammunition</span>
+                <Select value={item.getFlag(MODULE_ID, 'hunterAmmoType') ?? ''} disabled={!editable}
+                  options={[{ value: '', label: 'None' }, ...Object.entries(HUNTER_AMMO)
+                    .map(([value, { label }]) => ({ value, label }))]}
+                  onChange={(value) => item.setFlag(MODULE_ID, 'hunterAmmoType', value)} />
+              </label>
+            ) : null}
+          </div>
+          {item.getFlag(MODULE_ID, 'hunterDisguised') ? <EquipmentReference id="disguised-weapons" title="Disguised Weapon" /> : null}
+          {!specialWeapon ? (
+            <label className="bo-toggle">
+              <input type="checkbox" disabled={!editable}
+                checked={Boolean(item.getFlag(MODULE_ID, 'hunterImprovisedIncendiary'))}
+                onChange={(event) => item.setFlag(MODULE_ID, 'hunterImprovisedIncendiary', event.target.checked)} />
+              <span>Improvised incendiary</span>
+            </label>
+          ) : null}
+          {item.getFlag(MODULE_ID, 'hunterImprovisedIncendiary') ? <EquipmentReference id="incendiary-weapons" title="Incendiary Weapon" /> : null}
         </div>
       ) : null}
 
@@ -129,17 +223,29 @@ function Detail({ item, editable, onDelete, onEditWeapon, onEditArmor }) {
         />
       </label>
 
+      {hunter && section === 'weapon' && !specialWeapon ? <p className="bo-prose">{HUNTER_WEAPON_RULE}</p> : null}
+      {hunter && section === 'armor' ? <p className="bo-prose">{HUNTER_ARMOR_RULE}</p> : null}
+      {hunter && section === 'gear' && template ? (
+        <EquipmentReference key={item.id} id={template.reference} title={item.name} />
+      ) : null}
     </div>
   )
 }
 
 export default function InventoryTab({ actor, editable }) {
+  const [equipmentSection, setEquipmentSection] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   // null, { mode: 'add' } or { mode: 'edit', item }
   const [weaponDialog, setWeaponDialog] = useState(null)
   // The same, for armour.
   const [armorDialog, setArmorDialog] = useState(null)
   const selected = selectedId ? actor.items.get(selectedId) : null
+  const hunter = actor.type === 'hunter'
+
+  const addHunterEquipment = async (entry) => {
+    const [created] = await actor.createEmbeddedDocuments('Item', [buildHunterEquipment(entry)])
+    if (created) setSelectedId(created.id)
+  }
 
   const addWeapon = async (values) => {
     const [created] = await actor.createEmbeddedDocuments('Item', [buildWeaponData(values)])
@@ -161,7 +267,7 @@ export default function InventoryTab({ actor, editable }) {
 
   const add = async (section) => {
     if (section.id === 'weapon') {
-      setWeaponDialog({ mode: 'add' })
+      setWeaponDialog({ mode: 'add', range: section.range })
       return
     }
     if (section.id === 'armor') {
@@ -174,7 +280,7 @@ export default function InventoryTab({ actor, editable }) {
 
   const remove = async (item) => {
     const confirmed = await foundry.applications.api.DialogV2.confirm({
-      classes: ['blood-oracle', 'bo-dialog'],
+      classes: ['blood-oracle', 'bo-dialog', 'bo-dialog-remove'],
       window: { title: 'Remove item' },
       content: `<p>Remove <strong>${foundry.utils.escapeHTML(item.name)}</strong> from this character?</p>`
     })
@@ -186,13 +292,13 @@ export default function InventoryTab({ actor, editable }) {
   return (
     <div>
       <SectionTitle
-        info="Only equipped weapons add damage, and only equipped heavy armour costs Dexterity. Weapon damage is a flat bonus to successes, not extra dice, so it is shown apart from the pool. Brawl is unarmed and never draws an equipped weapon.">
+        info={hunter ? HUNTER_WEAPON_RULE : 'Only equipped weapons add damage, and only equipped heavy armour costs Dexterity. Weapon damage is a flat bonus to successes, not extra dice, so it is shown apart from the pool. Brawl is unarmed and never draws an equipped weapon.'}>
         Inventory
       </SectionTitle>
 
       <div className="bo-master-detail">
         <div>
-          {SECTIONS.map((section) => {
+          {(hunter ? HUNTER_SECTIONS : SECTIONS).map((section) => {
             const items = itemsOfSection(actor, section)
 
             return (
@@ -202,7 +308,7 @@ export default function InventoryTab({ actor, editable }) {
                     {section.label}
                   </div>
                   {editable ? (
-                    <GhostButton tone="accent" onClick={() => add(section)}>
+                    <GhostButton tone="accent" onClick={() => hunter && section.place !== GEAR_PLACES.property ? setEquipmentSection(section) : add(section)}>
                       + Add
                     </GhostButton>
                   ) : null}
@@ -262,8 +368,10 @@ export default function InventoryTab({ actor, editable }) {
         <div>
           {selected ? (
             <Detail
+              key={selected.id}
               item={selected}
               editable={editable}
+              hunter={hunter}
               onDelete={() => remove(selected)}
               onEditWeapon={() => setWeaponDialog({ mode: 'edit', item: selected })}
               onEditArmor={() => setArmorDialog({ mode: 'edit', item: selected })}
@@ -278,8 +386,17 @@ export default function InventoryTab({ actor, editable }) {
         </div>
       </div>
 
+      {equipmentSection ? (
+        <HunterEquipment section={equipmentSection} onAdd={addHunterEquipment}
+          onClose={() => setEquipmentSection(null)} onCustom={() => {
+            setEquipmentSection(null)
+            add(equipmentSection)
+          }} />
+      ) : null}
+
       {weaponDialog ? (
         <WeaponDialog
+          initialRange={weaponDialog.range}
           initial={
             weaponDialog.mode === 'edit'
               ? {

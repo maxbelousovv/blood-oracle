@@ -1,8 +1,9 @@
+import PickerModal from './PickerModal.jsx'
 import { useMemo, useState } from 'react'
-import { Modal, GhostButton } from './primitives.jsx'
-import { LORESHEETS } from '../rules/loresheets.js'
+import { LoresheetRules } from './Loresheets.jsx'
+import { GhostButton, FullRulesButton } from './primitives.jsx'
 import { getLoresheetText, loresheetTextsLoaded } from '../rules/catalog.js'
-import { availability, ownedLoresheets } from '../schema/loresheets.js'
+import { availability, loresheetsFor, ownedLoresheets } from '../schema/loresheets.js'
 
 const LEVELS = [1, 2, 3, 4, 5]
 const norm = (value) => String(value ?? '').trim().toLowerCase()
@@ -13,6 +14,7 @@ const norm = (value) => String(value ?? '').trim().toLowerCase()
  * the right the one under the pointer in full, each level with its own Take.
  */
 export default function LoresheetPicker({ actor, onTake, onClose }) {
+  const [reading, setReading] = useState(false)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(null)
   const [hovered, setHovered] = useState(null)
@@ -24,15 +26,16 @@ export default function LoresheetPicker({ actor, onTake, onClose }) {
   }, [actor, actor.items.size])
 
   const needle = norm(query)
+  const catalog = loresheetsFor(actor)
   const entries = useMemo(() => {
     const list = needle
-      ? LORESHEETS.filter(
+      ? catalog.filter(
           (entry) =>
             norm(entry.name).includes(needle) ||
             entry.levels.some((level) => norm(level).includes(needle)) ||
             norm(entry.restriction?.text).includes(needle)
         )
-      : LORESHEETS
+      : catalog
     // Available first, then alphabetical, so a Ventrue sees their own lineages
     // among the general ones rather than after a hundred others.
     return [...list].sort((a, b) => {
@@ -40,17 +43,18 @@ export default function LoresheetPicker({ actor, onTake, onClose }) {
       const rb = availability(actor, b).ok ? 0 : 1
       return ra - rb || a.name.localeCompare(b.name)
     })
-  }, [needle, actor])
+  }, [needle, actor, catalog])
 
   // Once one is clicked it stays, so the pointer can travel to its Take buttons
   // across other names; until then hovering previews.
   const preview = selected ?? hovered
-  const previewText = preview ? getLoresheetText(preview.id) : null
+  const fullText = preview ? getLoresheetText(preview.id) : null
+  const previewText = preview?.summary ? { description: preview.summary, levels: preview.summaries } : fullText
   const previewAccess = preview ? availability(actor, preview) : null
   const previewOwned = preview ? owned.get(preview.id) : null
 
   return (
-    <Modal title="Choose a loresheet" className="bo-modal is-xwide" onClose={onClose}>
+    <PickerModal title="Choose a loresheet" onClose={onClose}>
       <input
         type="text"
         className="bo-field"
@@ -91,13 +95,15 @@ export default function LoresheetPicker({ actor, onTake, onClose }) {
               </li>
             )
           })}
-          {!entries.length ? <li className="bo-picker-note">No loresheet matches that.</li> : null}
+          {!entries.length ? <li className="bo-picker-note">{catalog.length ? 'No loresheet matches that.' : 'No loresheets are available for this character type yet.'}</li> : null}
         </ul>
 
         <div className="bo-picker-preview is-lore">
           {preview ? (
             <>
               <h3 className="bo-detail-title">{preview.name}</h3>
+              {preview.source ? <p className="bo-detail-sub">{preview.source}</p> : null}
+              {preview.summary && fullText ? <FullRulesButton onClick={() => setReading(true)} /> : null}
               {preview.restriction ? (
                 <p className={previewAccess.ok ? 'bo-detail-sub' : 'bo-detail-sub is-unavailable'}>
                   {preview.restriction.text}
@@ -142,6 +148,7 @@ export default function LoresheetPicker({ actor, onTake, onClose }) {
           )}
         </div>
       </div>
-    </Modal>
+      {reading && preview ? <LoresheetRules entry={preview} owned={previewOwned} onClose={() => setReading(false)} /> : null}
+    </PickerModal>
   )
 }

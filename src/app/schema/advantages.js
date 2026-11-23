@@ -47,30 +47,35 @@ export function buildFeatureData({ name, featuretype, points = 0, description = 
   }
 }
 
-/** Create a feature from a catalogue entry, or a blank one for homebrew. */
-export async function addFeature(actor, { entry, featuretype }) {
+export function featureDataFromEntry({ entry, featuretype, points }) {
   const type = entry ? featureTypeFor(entry) : featuretype
 
   // A fixed-price merit arrives at its price; a range starts at its minimum.
   const range = entry ? dotsRange(entry.dots) : null
 
-  const data = buildFeatureData({
+  return buildFeatureData({
     name: entry?.name ?? '',
     featuretype: type,
-    points: range ? range.min : 0,
+    points: points ?? range?.min ?? 0,
     description: entry?.description ?? '',
     meta: entry
       ? {
           group: entry.group,
           dots: entry.dots,
+          ...(entry.hunterId ? { hunterId: entry.hunterId } : {}),
+          ...(entry.garouId ? { garouId: entry.garouId } : {}),
+          ...(entry.source ? { source: entry.source } : {}),
           hasDetails: entry.hasDetails,
           detailsPlaceholder: entry.detailsPlaceholder,
           details: ''
         }
       : {}
   })
+}
 
-  const [created] = await actor.createEmbeddedDocuments('Item', [data])
+/** Create a feature from a catalogue entry, or a blank one for homebrew. */
+export async function addFeature(actor, options) {
+  const [created] = await actor.createEmbeddedDocuments('Item', [featureDataFromEntry(options)])
   return created
 }
 

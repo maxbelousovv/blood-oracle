@@ -4,6 +4,7 @@ import App from '../app/App.jsx'
 import ErrorBoundary from '../app/components/ErrorBoundary.jsx'
 import { createStore } from '../app/store.js'
 import { syncTracks } from '../app/schema/derived.js'
+import { repairGarouState } from '../app/schema/werewolf-hooks.js'
 import { BloodOracleChargen } from './chargen-app.js'
 
 const { DocumentSheetV2 } = foundry.applications.api
@@ -45,7 +46,7 @@ export class BloodOracleSheet extends DocumentSheetV2 {
 
   _getHeaderControls() {
     const controls = super._getHeaderControls()
-    if (this.document.type === 'vampire' && this.isEditable) {
+    if (['vampire', 'hunter', 'werewolf'].includes(this.document.type) && this.isEditable) {
       controls.push({ icon: 'fa-solid fa-wand-magic-sparkles', label: 'Character creator', action: 'openChargen' })
     }
     return controls
@@ -116,7 +117,10 @@ export class BloodOracleSheet extends DocumentSheetV2 {
 
       // Correct stale maximums on open, for when no Storyteller was connected
       // to do it at load. A no-op when they already match.
-      if (this.isEditable) queueMicrotask(() => syncTracks(this.document))
+      if (this.isEditable) queueMicrotask(async () => {
+        await repairGarouState(this.document)
+        await syncTracks(this.document, true)
+      })
 
       this.#root = createRoot(this.#mount)
       this.#root.render(

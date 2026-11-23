@@ -7,6 +7,7 @@ import {
   armorRating
 } from '../schema/inventory.js'
 import { readSpecialties } from '../schema/specialties.js'
+import { garouHealth } from '../schema/werewolf.js'
 
 /**
  * Everything that decides how many dice a roll uses, kept separate from the UI
@@ -25,6 +26,7 @@ export function slotValue(actor, slot) {
   if (slot.kind === 'attribute') return Number(actor.system.attributes?.[slot.id]?.value) || 0
   if (slot.kind === 'skill') return Number(actor.system.skills?.[slot.id]?.value) || 0
   if (slot.kind === 'discipline') return Number(actor.system.disciplines?.[slot.id]?.value) || 0
+  if (slot.kind === 'renown') return Number(actor.system.renown?.[slot.id]?.value) || 0
   return 0
 }
 
@@ -117,7 +119,9 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
     .filter((slot) => slot?.kind === 'attribute' && slot.id)
     .map((slot) => slot.id)
 
-  const physicallyImpaired = isImpaired(actor.system.health)
+  const garou = actor.type === 'werewolf'
+  const physicallyImpaired = !(garou && actor.system.frenzyActive) &&
+    isImpaired(garou ? garouHealth(actor) : actor.system.health)
   const mentallyImpaired = isImpaired(actor.system.willpower)
 
   const usesPhysical = usedAttributes.some((id) => PHYSICAL.includes(id))
@@ -143,10 +147,15 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
     parts.push({ label: `Armour (${heavyArmor.name})`, value: armorPenalty })
   }
 
+  const equipmentParts = options.equipmentParts ?? []
+  parts.push(...equipmentParts)
+  const equipmentDice = equipmentParts.reduce((sum, { value }) => sum + value, 0)
+
   // Weapon damage is a flat bonus to successes in V5, not extra dice, so it is
   // reported alongside the pool rather than added to it. The first skill in the
   // pool decides which kind of weapon counts.
-  const skillSlot = slots.find((slot) => slot?.kind === 'skill' && slot.id)
+  const skillSlot = slots.find((slot) => slot?.kind === 'skill' &&
+    (actor.type === 'hunter' ? ['melee', 'firearms'].includes(slot.id) : slot.id))
   const weaponType =
     skillSlot?.id === 'melee' ? 'melee' : skillSlot?.id === 'firearms' ? 'ranged' : null
   const weaponBonusAvailable = weaponType ? equippedWeaponBonus(actor, weaponType) : 0
@@ -160,12 +169,12 @@ export function composePool(actor, { slots, modifier = 0, options = {} }) {
   )
 
   const raw =
-    traitsTotal + Number(modifier) + surge + specialty + resonanceBonus + lien + powerBonus + penalties
+    traitsTotal + Number(modifier) + surge + specialty + resonanceBonus + lien + powerBonus + penalties + equipmentDice
 
   // A Storyteller's modifier alone should not produce a roll, and penalties
   // never take a real pool below one die.
   const total = traitsTotal > 0 ? Math.max(1, raw) : 0
-  const flooredToOne = traitsTotal > 0 && penalties < 0 && raw < 1
+  const flooredToOne = traitsTotal > 0 && (penalties < 0 || equipmentParts.some(({ value }) => value < 0)) && raw < 1
 
   return {
     parts,

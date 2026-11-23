@@ -34,18 +34,17 @@ export const SPLATS = {
     // The system gives ghouls a Remorse roll too.
     remorse: true
   },
-  // Story characters stand in for anyone the Storyteller needs. Their own type
-  // is chosen on the actor (`system.spcType`), so the sheet stays neutral and
-  // shows the Blood tab only when that type calls for it.
   spc: {
     label: 'Story character',
-    tabs: ['bio', 'stats', 'disciplines', 'merits', 'inventory', 'notes'],
-    hunger: false,
-    potency: false,
-    resonance: false,
-    clanBane: false,
-    rouse: false,
-    resistFrenzy: false
+    tabs: ['bio', 'stats', 'merits', 'inventory', 'notes']
+  },
+  hunter: {
+    label: 'Hunter',
+    tabs: ['bio', 'stats', 'creed', 'edges', 'merits', 'inventory', 'notes']
+  },
+  werewolf: {
+    label: 'Werewolf',
+    tabs: ['bio', 'stats', 'garou-identity', 'forms', 'garou-powers', 'merits', 'inventory', 'notes']
   },
   mortal: {
     label: 'Mortal',
@@ -59,7 +58,37 @@ export const SPLATS = {
   }
 }
 
+export const STORY_CHARACTER_TYPES = [
+  { value: 'mortal', label: 'Mortal' },
+  { value: 'ghoul', label: 'Ghoul' },
+  { value: 'vampire', label: 'Vampire' },
+  { value: 'hunter', label: 'Hunter' },
+  { value: 'werewolf', label: 'Werewolf' },
+  { value: 'spirit', label: 'Spirit' }
+]
+
+export function storyCharacterType(actor) {
+  return actor?.type === 'spc' ? actor.system?.spcType || 'mortal' : null
+}
+
+/** A ghoul shares the vampire gamesystem, including when it is an SPC. */
+export function usesHunger(actor) {
+  const type = storyCharacterType(actor)
+  if (type) return type === 'vampire'
+  return actor?.system?.gamesystem === 'vampire' && actor.type !== 'ghoul'
+}
+
 export function splatOf(actor) {
+  const type = storyCharacterType(actor)
+  if (type) {
+    const vampire = type === 'vampire'
+    const ghoul = type === 'ghoul'
+    const tabs = [...SPLATS.spc.tabs]
+    if (vampire || ghoul) tabs.push('disciplines')
+    if (type === 'hunter') tabs.push('edges')
+    if (type === 'werewolf' || (type === 'spirit' && actor.system.settings?.enableGifts)) tabs.push('gifts')
+    return { ...SPLATS.spc, tabs, resistFrenzy: vampire || ghoul, remorse: vampire || ghoul }
+  }
   return SPLATS[actor?.type] ?? SPLATS.mortal
 }
 

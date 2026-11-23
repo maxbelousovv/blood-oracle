@@ -34,6 +34,10 @@ export function grantingPredator(actor) {
   return readJournal(actor)?.predator ?? null
 }
 
+export function specialtyBonus(skillId, name) {
+  return { source: name, value: 1, paths: [`skills.${skillId}`], displayWhenInactive: true }
+}
+
 export async function addSpecialty(actor, skillId, text) {
   const name = String(text ?? '').trim()
   if (!name) return false
@@ -42,7 +46,7 @@ export async function addSpecialty(actor, skillId, text) {
     ui.notifications.info(`That specialty is already on the skill.`)
     return false
   }
-  const record = { source: name, value: 1, paths: [`skills.${skillId}`], displayWhenInactive: true }
+  const record = specialtyBonus(skillId, name)
   await actor.update({ [`system.skills.${skillId}.bonuses`]: [...foundry.utils.deepClone(bonuses), record] })
   return true
 }
@@ -67,4 +71,8 @@ export async function removeSpecialty(actor, skillId, index) {
   if (!bonuses[index]) return
   bonuses.splice(index, 1)
   await actor.update({ [`system.skills.${skillId}.bonuses`]: bonuses })
+}
+
+export function specialtyLimit(actor, skillId, dots) {
+  return ['hunter', 'werewolf'].includes(actor.type) && skillId === 'craft' && dots > 0 ? Infinity : dots
 }

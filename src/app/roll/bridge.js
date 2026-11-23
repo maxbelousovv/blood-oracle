@@ -1,3 +1,5 @@
+import { usesHunger } from '../splats.js'
+
 /**
  * Blood Oracle builds the pool; wod5e rolls it.
  *
@@ -8,8 +10,7 @@
 
 /** Hunger only applies to full vampires; ghouls roll no hunger dice. */
 export function getHungerDice(actor) {
-  if (actor.system?.gamesystem !== 'vampire') return 0
-  if (actor.type === 'ghoul') return 0
+  if (!usesHunger(actor)) return 0
   return Math.max(actor.system?.hunger?.value ?? 0, 0)
 }
 
