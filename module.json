@@ -2,7 +2,7 @@
   "id": "blood-oracle",
   "title": "Blood Oracle",
   "description": "An alternative Vampire actor sheet for the World of Darkness 5e system.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "compatibility": {
     "minimum": "14",
     "verified": "14.367"
@@ -12,9 +12,9 @@
       "name": "Max"
     }
   ],
-  "url": "https://github.com/maxoneiii/blood-oracle",
-  "manifest": "https://github.com/maxoneiii/blood-oracle/releases/latest/download/module.json",
-  "download": "https://github.com/maxoneiii/blood-oracle/releases/latest/download/module.zip",
+  "url": "https://github.com/maxbelousovv/blood-oracle",
+  "manifest": "https://github.com/maxbelousovv/blood-oracle/releases/latest/download/module.json",
+  "download": "https://github.com/maxbelousovv/blood-oracle/releases/latest/download/module.zip",
   "esmodules": [
     "dist/blood-oracle.js"
   ],
@@ -69,5 +69,5 @@
     }
   },
   "license": "LICENSE",
-  "readme": "https://github.com/maxoneiii/blood-oracle#readme"
+  "readme": "https://github.com/maxbelousovv/blood-oracle#readme"
 }

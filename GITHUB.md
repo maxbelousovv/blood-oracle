@@ -41,7 +41,7 @@ git config --global user.email "max@example.com"
 
 Нажми **+** справа сверху → **New repository**. Заполни:
 
-- **Owner** — `maxoneiii`. Это важно: репозиторий должен принадлежать тому
+- **Owner** — `maxbelousovv`. Это важно: репозиторий должен принадлежать тому
   аккаунту, под которым Git авторизован на этой машине, иначе push упрётся в
   ошибку доступа
 - **Repository name** — `blood-oracle`
@@ -50,7 +50,7 @@ git config --global user.email "max@example.com"
 - остальное не трогай
 
 Нажми **Create repository**. Откроется страница с адресом вида
-`https://github.com/maxoneiii/blood-oracle` — он понадобится дальше.
+`https://github.com/maxbelousovv/blood-oracle` — он понадобится дальше.
 
 ## 4. Проверить адреса в модуле
 
@@ -58,10 +58,10 @@ git config --global user.email "max@example.com"
 поля с адресом репозитория:
 
 ```json
-"url": "https://github.com/maxoneiii/blood-oracle",
-"manifest": "https://github.com/maxoneiii/blood-oracle/releases/latest/download/module.json",
-"download": "https://github.com/maxoneiii/blood-oracle/releases/latest/download/module.zip",
-"readme": "https://github.com/maxoneiii/blood-oracle#readme"
+"url": "https://github.com/maxbelousovv/blood-oracle",
+"manifest": "https://github.com/maxbelousovv/blood-oracle/releases/latest/download/module.json",
+"download": "https://github.com/maxbelousovv/blood-oracle/releases/latest/download/module.zip",
+"readme": "https://github.com/maxbelousovv/blood-oracle#readme"
 ```
 
 Они указывают на последний релиз, поэтому при обновлениях их править не нужно.
@@ -93,7 +93,7 @@ dir
 git init
 git add .
 git commit -m "Первая версия"
-git remote add origin https://github.com/maxoneiii/blood-oracle.git
+git remote add origin https://github.com/maxbelousovv/blood-oracle.git
 git push -u origin main
 ```
 
@@ -168,7 +168,7 @@ git push
 Ссылка для установки выглядит так:
 
 ```
-https://github.com/maxoneiii/blood-oracle/releases/latest/download/module.json
+https://github.com/maxbelousovv/blood-oracle/releases/latest/download/module.json
 ```
 
 Открой её в браузере. Должен скачаться или показаться `module.json`. Если
@@ -196,7 +196,7 @@ GitHub пишет «Not Found» — значит файл не прикрепл�
 Если не помогло, укажи аккаунт прямо в адресе:
 
 ```
-git remote set-url origin https://maxoneiii@github.com/maxoneiii/blood-oracle.git
+git remote set-url origin https://maxbelousovv@github.com/maxbelousovv/blood-oracle.git
 git push -u origin main
 ```
 
@@ -205,7 +205,7 @@ git push -u origin main
 создать заново на нужном аккаунте и переставить адрес:
 
 ```
-git remote set-url origin https://github.com/maxoneiii/blood-oracle.git
+git remote set-url origin https://github.com/maxbelousovv/blood-oracle.git
 ```
 
 **`npm` не найден.** Нужен Node.js — https://nodejs.org, версия 24.
