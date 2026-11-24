@@ -44,7 +44,7 @@ const uid = () => foundry.utils.randomID(8)
  * current dots are gold, the ones being bought glow red. It never goes below
  * what the character already has — spending is not undoing.
  */
-function Stepper({ label, from, to, max, cost, onChange, note }) {
+function Stepper({ label, from, to, max, minPurchase = from + 1, cost, onChange, note }) {
   const target = Math.max(from, to ?? from)
   return (
     <div className={target > from ? 'bo-lu-row is-raised' : 'bo-lu-row'}>
@@ -57,10 +57,10 @@ function Stepper({ label, from, to, max, cost, onChange, note }) {
           <span key={i} className={i < from ? 'is-have' : i < target ? 'is-new' : ''} />
         ))}
       </span>
-      <button type="button" className="bo-lu-step" disabled={target <= from} onClick={() => onChange(target - 1)}>
+      <button type="button" className="bo-lu-step" disabled={target <= from} onClick={() => onChange(target <= minPurchase ? from : target - 1)}>
         −
       </button>
-      <button type="button" className="bo-lu-step" disabled={target >= max} onClick={() => onChange(target + 1)}>
+      <button type="button" className="bo-lu-step" disabled={target >= max} onClick={() => onChange(Math.max(minPurchase, target + 1))}>
         +
       </button>
       <span className="bo-lu-cost">{cost ? `${cost} XP` : ''}</span>
@@ -404,6 +404,7 @@ export default function LevelUp({ actor, onClose }) {
                 from={from}
                 to={to}
                 max={max}
+                minPurchase={dotsRange(meta.dots).min}
                 cost={(Math.max(to, from) - from) * 3}
                 onChange={(next) => setPlan((current) => ({ features: { ...current.features, [item.id]: next } }))}
               />

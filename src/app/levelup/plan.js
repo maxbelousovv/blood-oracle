@@ -180,6 +180,15 @@ export const planTotal = (lines) => lines.reduce((sum, line) => sum + line.cost,
 
 /** Why the plan cannot be bought yet — powers missing for new dots — or ''. */
 export function planProblem(actor, plan) {
+  for (const [id, to] of Object.entries(plan.features)) {
+    const item = actor.items.get(id)
+    if (!item) continue
+    const from = Number(item.system.points) || 0
+    const { min } = dotsRange(readAdvantageMeta(item).dots)
+    if (to > from && (!Number.isInteger(to) || to < min || to > featureMax(item))) {
+      return 'Invalid purchase rating for ' + item.name + '.'
+    }
+  }
   if (actor.type === 'werewolf') {
     const identities = garouIdentities(actor)
     const renown = totalRenownOf(actor) + GAROU_RENOWN.reduce((sum, [id]) => {

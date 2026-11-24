@@ -36,7 +36,7 @@ export default function GarouAdvantagePicker({ type, taken = [], onPick, onClose
       <div className="bo-library-actions">
         <GhostButton tone="accent" disabled={!name.trim() || !/^[1-5]$/.test(dots) || unavailable(name, type === 'background') || options.some((entry) => matches(entry.name, name))}
           onClick={() => onPick({
-            name: name.trim(), kind, dots, group: type === 'background' ? 'Backgrounds' : 'Custom',
+            name: name.trim(), kind, dots, custom: true, group: type === 'background' ? 'Backgrounds' : 'Custom',
             description: foundry.utils.escapeHTML(description.trim())
           })}>Add by name</GhostButton>
       </div>

@@ -62,6 +62,7 @@ export function featureDataFromEntry({ entry, featuretype, points }) {
       ? {
           group: entry.group,
           dots: entry.dots,
+          ...(entry.custom ? { custom: true } : {}),
           ...(entry.hunterId ? { hunterId: entry.hunterId } : {}),
           ...(entry.garouId ? { garouId: entry.garouId } : {}),
           ...(entry.source ? { source: entry.source } : {}),
@@ -76,6 +77,49 @@ export function featureDataFromEntry({ entry, featuretype, points }) {
 /** Create a feature from a catalogue entry, or a blank one for homebrew. */
 export async function addFeature(actor, options) {
   const [created] = await actor.createEmbeddedDocuments('Item', [featureDataFromEntry(options)])
+  return created
+}
+
+export function isCustomAdvantage(item) {
+  const meta = readAdvantageMeta(item)
+  if (meta.custom || meta.group === 'Custom') return true
+  if (meta.hunterId || meta.garouId || meta.predator) return false
+  // Older Garou custom backgrounds retained a rating and a catalogue group.
+  return (!meta.dots && !meta.group) || (item.parent?.type === 'werewolf' && meta.group === 'Backgrounds' && !meta.source)
+}
+
+export function parseAdvantageRating(value) {
+  const text = String(value).trim()
+  const points = Number(text)
+  return /^\d+$/.test(text) && Number.isSafeInteger(points) ? points : null
+}
+
+export async function saveAdvantageInstance(item, { name, description, points, details } = {}, { duplicate = false } = {}) {
+  const system = {
+    ...(description !== undefined ? { description } : {}),
+    ...(points !== undefined ? { points } : {})
+  }
+  const meta = details !== undefined ? { details } : {}
+
+  if (!duplicate) {
+    await item.update({
+      ...(name !== undefined ? { name } : {}),
+      ...(Object.keys(system).length ? { system } : {}),
+      ...(details !== undefined ? { flags: { [MODULE_ID]: { advantage: meta } } } : {})
+    })
+    return item
+  }
+
+  const source = item.toObject()
+  const advantage = { ...readAdvantageMeta(item), ...meta }
+  delete advantage.predator
+  const [created] = await item.parent.createEmbeddedDocuments('Item', [{
+    name: name ?? source.name,
+    type: 'feature',
+    img: source.img,
+    system: { ...source.system, ...system },
+    flags: { [MODULE_ID]: { advantage } }
+  }])
   return created
 }
 

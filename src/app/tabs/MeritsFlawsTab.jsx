@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import DotTracker from '../components/DotTracker.jsx'
-import { SectionTitle, LabelledValue, GhostButton } from '../components/primitives.jsx'
+import { SectionTitle, LabelledValue, GhostButton, Modal } from '../components/primitives.jsx'
 import { isLoaded } from '../rules/catalog.js'
 import { garouAdvantageFor } from '../rules/garou-advantages.js'
 import WerewolfReference from '../components/WerewolfReference.jsx'
@@ -12,8 +12,10 @@ import {
   featuresOfType,
   readAdvantageMeta,
   addFeature,
-  setDetails,
-  dotsRange
+  dotsRange,
+  isCustomAdvantage,
+  parseAdvantageRating,
+  saveAdvantageInstance
 } from '../schema/advantages.js'
 import { featureOrigin } from '../schema/predator-grants.js'
 import { LoresheetCard, LoresheetDetail } from '../components/Loresheets.jsx'
@@ -30,11 +32,118 @@ const SECTIONS = [
 
 /* ------------------------------------------------------------- detail */
 
-function FeatureDetail({ item, editable, locked, onDelete }) {
+function FeatureRating({ item, editable, locked }) {
+  const points = item.system.points ?? 0
+  const meta = readAdvantageMeta(item)
+  const max = Math.min(6, Math.max(5, dotsRange(meta.bookDots ?? meta.dots).max, points))
+  return (
+    <div className="bo-library-actions" style={{ marginTop: 0 }}>
+      <DotTracker
+        value={points}
+        max={max}
+        disabled={!editable}
+        locked={locked}
+        onChange={(next) => item.update({ 'system.points': next })}
+      />
+      {points > max ? <span className="bo-catalog-meta">{points}</span> : null}
+    </div>
+  )
+}
+
+function FeatureEditor({ item, duplicate, locked, onSaved, onClose }) {
+  const meta = readAdvantageMeta(item)
+  const custom = isCustomAdvantage(item)
+  const [initial] = useState(() => ({
+    name: item.name,
+    description: item.system.description ?? '',
+    points: String(item.system.points ?? 0),
+    details: meta.details ?? ''
+  }))
+  const [form, setForm] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const field = (key) => ({
+    value: form[key],
+    onChange: (event) => {
+      const value = event.target.value
+      setForm((current) => ({ ...current, [key]: value }))
+      setError('')
+    }
+  })
+
+  const save = async () => {
+    if (saving) return
+    const ratingChanged = !locked && form.points !== initial.points
+    const points = parseAdvantageRating(form.points)
+    if (ratingChanged && points === null) {
+      setError('Enter a whole number of dots, starting at zero.')
+      return
+    }
+    if (custom && !form.name.trim()) {
+      setError('Give the advantage a name.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const changes = {}
+      const details = form.details.trim()
+      if (details !== initial.details) changes.details = details
+      if (ratingChanged) changes.points = points
+      if (custom && form.name.trim() !== initial.name) changes.name = form.name.trim()
+      if (custom && form.description !== initial.description) changes.description = form.description
+      const saved = duplicate || Object.keys(changes).length
+        ? await saveAdvantageInstance(item, changes, { duplicate })
+        : item
+      if (!saved) throw new Error('The advantage was not created.')
+      onSaved(saved.id)
+    } catch (failure) {
+      setError(failure.message || 'Could not save the advantage.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title={duplicate ? 'Duplicate advantage' : 'Edit advantage'} subtitle={custom ? undefined : item.name}
+      onClose={saving ? undefined : onClose}>
+      <div>
+        {custom ? (
+          <label className="bo-field-label">
+            <span>Name</span>
+            <input className="bo-field" type="text" autoFocus disabled={saving} {...field('name')} />
+          </label>
+        ) : null}
+        <label className="bo-field-label">
+          <span>Details</span>
+          <textarea className="bo-field" rows={3} autoFocus={!custom} disabled={saving}
+            placeholder={meta.detailsPlaceholder || 'Who or what this refers to'} {...field('details')} />
+        </label>
+        <label className="bo-field-label">
+          <span>Rating</span>
+          <input className="bo-field" type="text" inputMode="numeric" disabled={locked || saving} {...field('points')} />
+          {locked ? <span className="bo-roll-note">Unlock ratings on the sheet to change the dots.</span> : null}
+        </label>
+        {custom ? (
+          <label className="bo-field-label">
+            <span>Description</span>
+            <textarea className="bo-field" rows={4} disabled={saving} {...field('description')} />
+          </label>
+        ) : null}
+        {error ? <p className="bo-roll-note" role="alert">{error}</p> : null}
+        <div className="bo-library-actions">
+          <GhostButton onClick={onClose} disabled={saving}>Cancel</GhostButton>
+          <GhostButton tone="accent" onClick={save} disabled={saving}>Save</GhostButton>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function FeatureDetail({ item, editable, locked, onEdit, onDuplicate, onDelete }) {
   const meta = readAdvantageMeta(item)
   const garou = item.parent?.type === 'werewolf' ? garouAdvantageFor(item, meta) : null
   const origin = item.parent ? featureOrigin(item.parent, item.id) : null
-  const range = dotsRange(meta.dots)
+  const bookDots = isCustomAdvantage(item) ? null : (meta.bookDots ?? meta.dots)
 
   return (
     <div className="bo-panel">
@@ -48,41 +157,20 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
           </p>
         </div>
         {editable ? (
-          <GhostButton tone="danger" onClick={onDelete}>
-            Remove
-          </GhostButton>
+          <div className="bo-library-actions">
+            <GhostButton tone="accent" onClick={onEdit}>Edit</GhostButton>
+            <GhostButton onClick={onDuplicate}>Duplicate</GhostButton>
+            <GhostButton tone="danger" onClick={onDelete}>Remove</GhostButton>
+          </div>
         ) : null}
       </div>
 
       <div className="bo-row" style={{ margin: '4px 0 14px' }}>
-        <span style={{ color: 'var(--bo-text-muted)', fontSize: '15px' }}>
-          Rating
-          {range.fixed ? (
-            <span style={{ color: 'var(--bo-text-faint)', marginLeft: '6px' }}>· fixed</span>
-          ) : null}
-        </span>
-        <DotTracker
-          value={item.system.points ?? 0}
-          max={Math.min(Math.max(range.max, 1), 6)}
-          min={range.min}
-          // A fixed-price merit costs what it costs; only ranges are a choice.
-          disabled={!editable || range.fixed}
-          locked={locked}
-          onChange={(next) =>
-            item.update({ 'system.points': Math.max(range.min, Math.min(range.max, next)) })
-          }
-        />
+        <span style={{ color: 'var(--bo-text-muted)', fontSize: '15px' }}>Rating</span>
+        <FeatureRating item={item} editable={editable} locked={locked} />
       </div>
 
-      {editable && !meta.dots && !meta.hunterId ? (
-        <label className="bo-field-label">
-          <span>Description</span>
-          <textarea className="bo-field" rows={5} key={item.system.description} defaultValue={item.system.description ?? ''}
-            onBlur={(event) => {
-              if (event.target.value !== (item.system.description ?? '')) item.update({ 'system.description': event.target.value })
-            }} />
-        </label>
-      ) : item.system.description ? (
+      {item.system.description ? (
         <p className="bo-prose">{item.system.description}</p>
       ) : (
         <p className="bo-value is-empty">No description recorded.</p>
@@ -90,24 +178,16 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
       {meta.hunterId ? <HunterAdvantageReference key={meta.hunterId} id={meta.hunterId} source={meta.source} /> : null}
       {garou ? <WerewolfReference id={garou.id} /> : null}
 
-      {meta.hasDetails ? (
-        <label className="bo-field-label" style={{ marginTop: '14px' }}>
-          <span>Details</span>
-          <input
-            type="text"
-            className="bo-field"
-            defaultValue={meta.details ?? ''}
-            disabled={!editable}
-            placeholder={meta.detailsPlaceholder || 'Specifics…'}
-            onBlur={(event) => setDetails(item, event.target.value)}
-            key={meta.details ?? ''}
-          />
-        </label>
+      {meta.details ? (
+        <div className="bo-block">
+          <div className="bo-label">Details</div>
+          <p className="bo-prose" style={{ whiteSpace: 'pre-wrap' }}>{meta.details}</p>
+        </div>
       ) : null}
 
-      {meta.dots ? (
+      {bookDots ? (
         <div className="bo-scalars">
-          <LabelledValue label="Rating in the book" value={meta.bookDots ?? meta.dots} />
+          <LabelledValue label="Rating in the book" value={bookDots} />
         </div>
       ) : null}
     </div>
@@ -118,6 +198,7 @@ function FeatureDetail({ item, editable, locked, onDelete }) {
 
 export default function MeritsFlawsTab({ actor, editable, locked }) {
   const [selectedId, setSelectedId] = useState(null)
+  const [editing, setEditing] = useState(null)
   const [picking, setPicking] = useState(null) // { kind, backgroundsOnly, type }
   // Loresheets are selected by loresheet, not by item: one card holds several.
   const [selectedLore, setSelectedLore] = useState(null)
@@ -126,6 +207,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
   const hunter = actor.type === 'hunter'
   const werewolf = actor.type === 'werewolf'
   const selected = selectedId ? actor.items.get(selectedId) : null
+  const editingItem = editing ? actor.items.get(editing.id) : null
   const loresheets = ownedLoresheets(actor).filter((group) => canSee(actor, group.entry.id))
   const selectedLoreGroup = selectedLore
     ? loresheets.find((group) => group.entry.id === selectedLore) ?? null
@@ -160,7 +242,9 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
 
   const addBlank = async (featuretype) => {
     const created = await addFeature(actor, { featuretype })
-    if (created) selectItem(created.id)
+    if (!created) return
+    selectItem(created.id)
+    setEditing({ id: created.id, duplicate: false })
   }
 
   const pickFrom = async (entry) => {
@@ -172,7 +256,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
   return (
     <div>
       <SectionTitle
-        info="What the character carries beyond their traits — and what carries them. The rating shown beside a catalogue entry is the range the book allows, not the rating bought. Set the dots to what the character actually has.">
+        info="Select an entry to edit its details and current rating. The catalogue shows the rating used when buying it.">
         Merits &amp; flaws
       </SectionTitle>
 
@@ -236,23 +320,7 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
                             </span>
                           ) : null}
                         </div>
-                        {(() => {
-                          const range = dotsRange(readAdvantageMeta(item).dots)
-                          return (
-                            <DotTracker
-                              value={item.system.points ?? 0}
-                              max={Math.min(Math.max(range.max, 1), 6)}
-                              min={range.min}
-                              disabled={!editable || range.fixed}
-                              locked={locked}
-                              onChange={(next) =>
-                                item.update({
-                                  'system.points': Math.max(range.min, Math.min(range.max, next))
-                                })
-                              }
-                            />
-                          )
-                        })()}
+                        <FeatureRating item={item} editable={editable} locked={locked} />
                       </div>
                     ))}
                   </div>
@@ -314,6 +382,8 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
               item={selected}
               editable={editable}
               locked={locked}
+              onEdit={() => setEditing({ id: selected.id, duplicate: false })}
+              onDuplicate={() => setEditing({ id: selected.id, duplicate: true })}
               onDelete={() => remove(selected)}
             />
           ) : (
@@ -333,11 +403,18 @@ export default function MeritsFlawsTab({ actor, editable, locked }) {
           kind={picking.kind}
           sectionType={picking.type}
           backgroundsOnly={picking.backgroundsOnly}
+          allowEnemyCopies
           // A clan's coterie merit can be bought by one of its Kindred alone.
           extraEntries={!hunter && picking.kind === 'merit' && !picking.backgroundsOnly ? clanCoterieEntries(actor) : null}
           onPick={pickFrom}
           onClose={() => setPicking(null)}
         />
+      ) : null}
+
+      {editingItem && editable ? (
+        <FeatureEditor key={editingItem.id} item={editingItem} duplicate={editing.duplicate} locked={locked}
+          onClose={() => setEditing(null)}
+          onSaved={(id) => { selectItem(id); setEditing(null) }} />
       ) : null}
 
       {pickingLore ? (

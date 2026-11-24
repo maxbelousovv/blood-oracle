@@ -66,6 +66,7 @@ export default function AdvantagePicker({
   extraEntries = null,
   // Names never offered here — a Caitiff's Status at character creation.
   exclude = null,
+  allowEnemyCopies = false,
   initialQuery = '',
   title: titleOverride = null
 }) {
@@ -125,7 +126,9 @@ export default function AdvantagePicker({
 
   const showGroup = searching || rubric === ALL
   const isTaken = (entry) => owned.has(norm(entry.name))
-  const canAdd = (entry) => !isTaken(entry) || repeatable(entry)
+  const canRepeat = (entry) => repeatable(entry) ||
+    (allowEnemyCopies && entry.kind === 'flaw' && norm(entry.name) === 'enemy')
+  const canAdd = (entry) => !isTaken(entry) || canRepeat(entry)
   const preview = hovered ?? selected
 
   const add = (entry) => {
@@ -173,7 +176,7 @@ export default function AdvantagePicker({
             const taken = isTaken(entry)
             const classes = [
               'bo-catalog-item',
-              taken && !repeatable(entry) ? 'is-owned' : '',
+              taken && !canRepeat(entry) ? 'is-owned' : '',
               selected === entry ? 'is-selected' : ''
             ]
               .filter(Boolean)
@@ -217,7 +220,7 @@ export default function AdvantagePicker({
               ) : null}
               {isTaken(preview) ? (
                 <p className="bo-picker-note">
-                  {repeatable(preview) ? '✓ Already taken — can be taken again' : '✓ Already taken'}
+                  {canRepeat(preview) ? '✓ Already taken — can be taken again' : '✓ Already taken'}
                 </p>
               ) : null}
               <div className="bo-library-actions">
